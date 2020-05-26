@@ -19,6 +19,7 @@ from modules import NT_Xent
 from modules.sync_batchnorm import convert_model
 from modules.transformations import TransformsSimCLR
 from utils import post_config_hook
+from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 
 #### pass configuration
 from experiment import ex
@@ -75,6 +76,10 @@ def main(_run, _log):
         train_dataset = torchvision.datasets.CIFAR10(
             root, download=True, transform=TransformsSimCLR(size=32)
         )
+    elif args.dataset == 'msi':
+        # train_dataset = custom_histo_dataset
+        #TODO using a fraction of the data at this moment
+        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=0.05)
     else:
         raise NotImplementedError
 

@@ -1,16 +1,17 @@
 # train options
 seed: 42 # sacred handles automatic seeding when passed in the config
-batch_size: 128
+batch_size: 32
 workers: 16
 start_epoch: 0
 epochs: 100
-dataset: "CIFAR10" # STL10
+dataset: "msi" # STL10
+path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 pretrain: True 
 
 # model options
 resnet: "resnet50"
 normalize: True
-projection_dim: 64 # "[...] to project the representation to a 128-dimensional latent space"
+projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space"
 
 # loss options
 optimizer: "Adam" # or LARS (experimental)
