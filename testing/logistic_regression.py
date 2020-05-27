@@ -13,12 +13,16 @@ from modules.transformations import TransformsSimCLR
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 
+import pandas as pd
+
 
 
 def inference(loader, context_model, device):
     feature_vector = []
     labels_vector = []
-    for step, (x, y) in enumerate(loader):
+    patients = []
+    imgs = []
+    for step, (x, y, patient, img_name) in enumerate(loader):
         x = x.to(device)
 
         # get encoding
@@ -33,28 +37,31 @@ def inference(loader, context_model, device):
         if step % 20 == 0:
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
 
+        patients+=patient
+        imgs+=img_name
+
     feature_vector = np.array(feature_vector)
     labels_vector = np.array(labels_vector)
     print("Features shape {}".format(feature_vector.shape))
-    return feature_vector, labels_vector
+    return feature_vector, labels_vector, patients, imgs
 
 
 def get_features(context_model, train_loader, test_loader, device):
-    train_X, train_y = inference(train_loader, context_model, device)
-    test_X, test_y = inference(test_loader, context_model, device)
-    return train_X, train_y, test_X, test_y
+    train_X, train_y, train_patients, train_imgs = inference(train_loader, context_model, device)
+    test_X, test_y, test_patients, test_imgs = inference(test_loader, context_model, device)
+    return train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs
 
 
-def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size):
+def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size, train_patients, train_imgs, test_patients, test_imgs):
     train = torch.utils.data.TensorDataset(
-        torch.from_numpy(X_train), torch.from_numpy(y_train)
+        torch.from_numpy(X_train), torch.from_numpy(y_train), torch.Tensor(train_patients)
     )
     train_loader = torch.utils.data.DataLoader(
         train, batch_size=batch_size, shuffle=False
     )
 
     test = torch.utils.data.TensorDataset(
-        torch.from_numpy(X_test), torch.from_numpy(y_test)
+        torch.from_numpy(X_test), torch.from_numpy(y_test), torch.Tensor(test_patients)
     )
     test_loader = torch.utils.data.DataLoader(
         test, batch_size=batch_size, shuffle=False
@@ -65,7 +72,7 @@ def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size
 def train(args, loader, simclr_model, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
-    for step, (x, y) in enumerate(loader):
+    for step, (x, y, patient) in enumerate(loader):
         optimizer.zero_grad()
 
         x = x.to(args.device)
@@ -93,14 +100,21 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
 def test(args, loader, simclr_model, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
+
+    labels = []
+    preds = [] 
+    patients = []
+    img_names = []
+
     model.eval()
-    for step, (x, y) in enumerate(loader):
+    for step, (x, y, patient) in enumerate(loader):
         model.zero_grad()
 
         x = x.to(args.device)
         y = y.to(args.device)
 
         output = model(x)
+
         loss = criterion(output, y)
 
         predicted = output.argmax(1)
@@ -109,8 +123,12 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
 
         loss_epoch += loss.item()
 
-    return loss_epoch, accuracy_epoch
+        labels += y.cpu().tolist()
+        preds += predicted.cpu().tolist()
+        patients += patient.cpu().tolist()
 
+
+    return loss_epoch, accuracy_epoch, labels, preds, patients
 
 @ex.automain
 def main(_run, _log):
@@ -148,8 +166,8 @@ def main(_run, _log):
             transform=TransformsSimCLR(size=224).test_transform,
         )
     elif args.dataset == "msi":
-        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=0.05)
-        test_dataset = dataset_msi(root_dir=args.path_to_test_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=0.1)
+        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=1)
+        test_dataset = dataset_msi(root_dir=args.path_to_test_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=1)
     else:
         raise NotImplementedError
 
@@ -183,12 +201,12 @@ def main(_run, _log):
     criterion = torch.nn.CrossEntropyLoss()
 
     print("### Creating features from pre-trained context model ###")
-    (train_X, train_y, test_X, test_y) = get_features(
+    (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
         simclr_model, train_loader, test_loader, args.device
     )
 
     arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
-        train_X, train_y, test_X, test_y, args.logistic_batch_size
+        train_X, train_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, test_patients, test_imgs
     )
 
     for epoch in range(args.logistic_epochs):
@@ -200,9 +218,15 @@ def main(_run, _log):
         )
 
     # final testing
-    loss_epoch, accuracy_epoch = test(
+    loss_epoch, accuracy_epoch, labels, preds, patients = test(
         args, arr_test_loader, simclr_model, model, criterion, optimizer
     )
+
+    final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+
+    final_data.to_csv('test_output.csv')
+
     print(
         f"[FINAL]\t Loss: {loss_epoch / len(test_loader)}\t Accuracy: {accuracy_epoch / len(test_loader)}"
     )
+
