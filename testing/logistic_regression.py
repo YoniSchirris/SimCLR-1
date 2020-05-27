@@ -11,6 +11,9 @@ from utils import post_config_hook
 from modules import LogisticRegression
 from modules.transformations import TransformsSimCLR
 
+from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
+
+
 
 def inference(loader, context_model, device):
     feature_vector = []
@@ -144,6 +147,9 @@ def main(_run, _log):
             download=True,
             transform=TransformsSimCLR(size=224).test_transform,
         )
+    elif args.dataset == "msi":
+        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=0.05)
+        test_dataset = dataset_msi(root_dir=args.path_to_test_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=0.5)
     else:
         raise NotImplementedError
 
@@ -168,7 +174,8 @@ def main(_run, _log):
     simclr_model.eval()
 
     ## Logistic Regression
-    n_classes = 10  # stl-10
+    # n_classes = 10  # stl-10
+    n_classes = 2  # MSI VS MSS
     model = LogisticRegression(simclr_model.n_features, n_classes)
     model = model.to(args.device)
 
