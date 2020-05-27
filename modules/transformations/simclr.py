@@ -26,6 +26,7 @@ class TransformsSimCLR:
 
         self.test_transform = torchvision.transforms.Compose(
             [
+                torchvision.transforms.ToPILImage(),
                 torchvision.transforms.Resize(size=size),
                 torchvision.transforms.ToTensor()
             ]

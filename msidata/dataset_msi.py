@@ -81,9 +81,9 @@ class PreProcessedMSIDataset(Dataset):
             patient_id = []
 
         if self.transform:
-            tile1, tile2 = self.transform(tile)
+            one_or_two_tiles = self.transform(tile)
         sample = (tile, label, patient_id, img_name)
-        return (tile1, tile2), label
+        return one_or_two_tiles, label
 
     def setup(self):
         """
