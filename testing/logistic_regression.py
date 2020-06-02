@@ -166,8 +166,8 @@ def main(_run, _log):
             transform=TransformsSimCLR(size=224).test_transform,
         )
     elif args.dataset == "msi":
-        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=1)
-        test_dataset = dataset_msi(root_dir=args.path_to_test_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=1)
+        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=args.data_testing_train_fraction)
+        test_dataset = dataset_msi(root_dir=args.path_to_test_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=args.data_testing_test_fraction)
     else:
         raise NotImplementedError
 

@@ -5,9 +5,15 @@ workers: 16
 start_epoch: 0
 epochs: 100
 dataset: "msi" # STL10
+# path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+# path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 pretrain: True 
+
+data_pretrain_fraction: 0.1
+data_testing_train_fraction: 0.1
+data_testing_test_fraction: 0.1
 
 # model options
 resnet: "resnet50"

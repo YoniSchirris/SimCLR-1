@@ -79,7 +79,7 @@ def main(_run, _log):
     elif args.dataset == 'msi':
         # train_dataset = custom_histo_dataset
         #TODO using a fraction of the data at this moment
-        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=0.05)
+        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=args.data_pretrain_fraction)
     else:
         raise NotImplementedError
 
