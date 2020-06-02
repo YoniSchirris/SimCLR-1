@@ -14,6 +14,8 @@ from modules.transformations import TransformsSimCLR
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 
 import pandas as pd
+import time
+import datetime
 
 
 
@@ -224,7 +226,10 @@ def main(_run, _log):
 
     final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
 
-    final_data.to_csv('test_output.csv')
+    humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
+
+    print(f'This is the out dir {args.out_dir}')
+    final_data.to_csv(f'{args.out_dir}/regression_output_{humane_readable_time}.csv')
 
     print(
         f"[FINAL]\t Loss: {loss_epoch / len(test_loader)}\t Accuracy: {accuracy_epoch / len(test_loader)}"
