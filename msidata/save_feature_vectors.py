@@ -1,3 +1,9 @@
+# Written by Yoni Schirris
+# Wed 3 June 2020
+# Script that transforms each tile given by a "regular" dataloader to a .pt feature vector with the same name
+# This makes it easy to adjust existing dataloaders to load these vectors instead of images
+# This script uses a pre-trained feature extractor, at the time of writing this is SimCLR
+
 from msidata.wip_patient_dataset_msi import PreProcessedMSIDataset as wip_dataset
 
 import torch
