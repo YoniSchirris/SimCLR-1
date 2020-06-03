@@ -15,7 +15,6 @@ from model import load_model
 from utils import post_config_hook
 
 from modules import LogisticRegression
-from modules.deepmil import Attention
 from modules.transformations import TransformsSimCLR
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
