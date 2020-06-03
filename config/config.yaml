@@ -5,15 +5,16 @@ workers: 16
 start_epoch: 0
 epochs: 100
 dataset: "msi" # STL10
-# path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
-# path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
-path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
-path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+# path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+# path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 pretrain: True 
 
 data_pretrain_fraction: 0.1
 data_testing_train_fraction: 0.1
 data_testing_test_fraction: 0.1
+data_create_feature_vectors_fraction: 0.1
 
 # model options
 resnet: "resnet50"
@@ -22,18 +23,18 @@ projection_dim: 128 # "[...] to project the representation to a 128-dimensional 
 
 # loss options
 optimizer: "Adam" # or LARS (experimental)
-weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10−6"
+weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
 temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
 
 # reload options
-model_path: "logs/0" # set to the directory containing `checkpoint_##.tar` 
-epoch_num: 100 # set to checkpoint number
+model_path: "logs/pretrain/test" # set to the directory containing `checkpoint_##.tar` 
+epoch_num: 90 # set to checkpoint number
 
 # mixed-precision training
 fp16: False 
 fp16_opt_level: "O2"
 
-
-# logistic regression options
+# testing options
+classification_head: 'logistic' # or 'logistic' or 'deepmil'
 logistic_batch_size: 256
 logistic_epochs: 500
