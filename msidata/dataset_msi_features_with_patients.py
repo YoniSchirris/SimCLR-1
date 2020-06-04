@@ -10,7 +10,7 @@
 # This dataloader is necessary since for larger datasets the feature extractor and feature vectors will overflow memory
 # Also, the extraction only has to be done once, and then we can test a variety of classification heads rapidly
 
-# 
+# The strings returned are a bit messy, as is expected, from here: https://github.com/pytorch/pytorch/issues/6893
 
 
 
@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sample_strategy='tile'):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile'):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -46,13 +46,13 @@ class PreProcessedMSIFeatureDataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
             data_fraction (float): float in [0,1] defining the size of a random subset of all the data used
-            sample_strategy (string): 'tile' or 'patient'. When 'tile', batch_size is taken into account, and batch_size
+            sampling_strategy (string): 'tile' or 'patient'. When 'tile', batch_size is taken into account, and batch_size
                 tiles are batched. When strategy is 'patient', it will always take all tiles of a single patient. This is
                 primarily used for MIL training
         """
         # self.labels = pd.read_csv(csv_file)
 
-        self.sample_strategy = sample_strategy
+        self.sampling_strategy = sampling_strategy
 
         if 'msidata' in root_dir:
             # set up stuff for MSI data
@@ -66,9 +66,9 @@ class PreProcessedMSIFeatureDataset(Dataset):
         self.root_dir = root_dir
         self.setup()
         self.labels = pd.read_csv(
-            self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=42)
+            self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
 
-        if sample_strategy == 'patient':
+        if sampling_strategy == 'patient':
             self.grouped_labels = self.labels.groupby(['patient_id'])
             self.indices_for_groups = list(self.grouped_labels.groups.values())
 
@@ -77,19 +77,19 @@ class PreProcessedMSIFeatureDataset(Dataset):
     def __len__(self, val=False):
         # full_data_len = len([name for label in self.label_classes.keys() for name in os.listdir(f'{self.root_dir}/{label}') if
         #             os.path.isfile(os.path.join(f'{self.root_dir}/{label}', name)) and name.endswith('.png')])
-        if self.sample_strategy == 'tile':
+        if self.sampling_strategy == 'tile':
             full_data_len = len(self.labels.index)
-        elif self.sample_strategy == 'patient':
+        elif self.sampling_strategy == 'patient':
             full_data_len = self.grouped_labels.ngroups
         return full_data_len
 
     def __getitem__(self, idx):
 
-        if self.sample_strategy == 'tile':
+        if self.sampling_strategy == 'tile':
             one_or_two_tiles, label, patient_id, img_name = self._get_tile_item(
                 idx)
             
-        elif self.sample_strategy == 'patient':
+        elif self.sampling_strategy == 'patient':
             one_or_two_tiles, label, patient_id, img_name = self._get_patient_items(
                 idx)
 
@@ -99,13 +99,17 @@ class PreProcessedMSIFeatureDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        indices = self.indices_for_groups[idx]
+        indices = self.indices_for_groups[idx] # using iloc, as we pick SOME of the indices
 
-        patient_data = self.labels.iloc[indices]
+        patient_data = self.labels.loc[indices] # using loc, as we want the original indices, not the current location in the df.
 
         patient_ids = list(patient_data['patient_id'])
 
-        labels = list(patient_data['label'])
+        assert(len(set(patient_ids)) == 1), f'We have more than one patient ID. dataloader is going wrong. patients: {patient_ids}'
+
+        labels = torch.tensor(patient_data['label'].to_numpy(copy=True))
+
+        assert(max(labels) == min(labels)), f'The same patients has different labels somehow: patient: {patient_ids}, labels: {labels}'
 
         # Loop over relative image paths
         # Replace .png with .pt, this means we can use the same data.csv file
@@ -116,14 +120,16 @@ class PreProcessedMSIFeatureDataset(Dataset):
         vector_paths = [os.path.join(self.root_dir, img.replace('.png', '.pt')) for img in list(patient_data['img'])]
         vectors = torch.stack([torch.load(vector_path) for vector_path in vector_paths])
 
-        return vectors, labels, patient_ids, list(patient_data['img'])
+        # import pdb; pdb.set_trace()
+
+        return (vectors, labels, patient_ids, list(patient_data['img']))
 
 
     def _get_tile_item(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", ".pt")
+        img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", ".pt") 
         vector = torch.load(img_name)
         label = self.labels.iloc[idx, 2]
         patient_id = self.labels.iloc[idx, 3]
@@ -149,7 +155,6 @@ class PreProcessedMSIFeatureDataset(Dataset):
                                 # 1st column of labels holds LABEL/IMAGE_NAME.png
                                 # IMAGE_NAME is blk-ABCDEGHIJKLMNOP-TCGA-AA-####-01Z-00-DX1.png
                                 # where #### is the patient ID
-                            print(name)
                             patient_id = name.split('-')[4]
                         elif self.task == 'cancer':
                             patient_id = name.split('-')[1].split('.')[0]
