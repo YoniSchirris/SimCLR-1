@@ -27,7 +27,7 @@ weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
 temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
 
 # reload options
-model_path: "logs/pretrain/test" # set to the directory containing `checkpoint_##.tar` 
+model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
 epoch_num: 90 # set to checkpoint number
 
 # mixed-precision training
@@ -38,3 +38,5 @@ fp16_opt_level: "O2"
 classification_head: 'logistic' # or 'logistic' or 'deepmil'
 logistic_batch_size: 256
 logistic_epochs: 500
+clsfc_lr: 0.05
+clsfc_reg: 1.0e-5
