@@ -1,8 +1,14 @@
 # Written by Yoni Schirris
 # Wed 3 June 2020
+
+
+
 # Script that transforms each tile given by a "regular" dataloader to a .pt feature vector with the same name
 # This makes it easy to adjust existing dataloaders to load these vectors instead of images
-# This script uses a pre-trained feature extractor, at the time of writing this is SimCLR
+
+# This script should be run after having trained a SimCLR feature extractor with main.py
+
+# After this script, one can use the tile- or patient-level vector dataloader to test classification heads
 
 import torch
 import torchvision
