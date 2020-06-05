@@ -150,7 +150,7 @@ def test(args, loader, model, criterion, optimizer):
             loss_epoch += train_loss
             accuracy_epoch += acc
 
-            Y_prob = Y_out.float().softmax(dim=0)[1].cpu().item() # We get probabilities, and get the probability for MSI
+            Y_prob = Y_out.float().softmax(dim=1)[:,1].cpu().item() # We get probabilities, and get the probability for MSI for all in batch
 
             labels.append(Y.item())   # Y is a single label
             preds.append(Y_prob) 
@@ -287,8 +287,10 @@ def main(_run, _log):
 
     humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
 
-    print(f'This is the out dir {args.out_dir}')
-    final_data.to_csv(f'{args.out_dir}/regression_output_{humane_readable_time}.csv')
+    
+    output_csv = f'{args.out_dir}/regression_output_{humane_readable_time}.csv'
+    print(f"Results saved to {output_csv}")
+    final_data.to_csv(output_csv)
 
     print(
         f"[FINAL]\t Loss: {loss_epoch / len(test_loader)}\t Accuracy: {accuracy_epoch / len(test_loader)}"
