@@ -176,12 +176,14 @@ def main(_run, _log):
         train_dataset = dataset_msi_features(
             root_dir            =   args.path_to_msi_data, 
             sampling_strategy   =   sampling_strategy,
-            data_fraction       =   args.data_testing_train_fraction
+            data_fraction       =   args.data_testing_train_fraction,
+            device              =   args.device
             )
         test_dataset = dataset_msi_features(
             root_dir            =   args.path_to_test_msi_data, 
             sampling_strategy   =   sampling_strategy,
-            data_fraction       =   args.data_testing_test_fraction
+            data_fraction       =   args.data_testing_test_fraction,
+            device              =   args.device
             )
     else:
         raise NotImplementedError

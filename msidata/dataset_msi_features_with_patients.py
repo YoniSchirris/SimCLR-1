@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile'):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu'):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -53,6 +53,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         # self.labels = pd.read_csv(csv_file)
 
         self.sampling_strategy = sampling_strategy
+        self.device = device
 
         if 'msidata' in root_dir:
             # set up stuff for MSI data
@@ -118,7 +119,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         # Place all the tensors in a list
         # Stack the tensors
         vector_paths = [os.path.join(self.root_dir, img.replace('.png', '.pt')) for img in list(patient_data['img'])]
-        vectors = torch.stack([torch.load(vector_path) for vector_path in vector_paths])
+        vectors = torch.stack([torch.load(vector_path, map_location=self.device) for vector_path in vector_paths])
 
         # import pdb; pdb.set_trace()
 
