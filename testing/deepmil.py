@@ -225,13 +225,14 @@ def main(_run, _log):
 
     criterion = torch.nn.CrossEntropyLoss()
 
-    print(f"Using {args.n_gpu} GPUs")
-    if args.n_gpu > 1:
-        model = torch.nn.DataParallel(model)
-        model = convert_model(model)
-        model = model.to(args.device)
-        args.batch_size *= args.n_gpu
-        print(f"Using a total batch size of {args.batch_size} spread over the GPUs now")
+    # No multi-gpu support for now
+    # print(f"Using {args.n_gpu} GPUs")
+    # if args.n_gpu > 1:
+    #     model = torch.nn.DataParallel(model)
+    #     model = convert_model(model)
+    #     model = model.to(args.device)
+    #     args.batch_size *= args.n_gpu
+    #     print(f"Using a total batch size of {args.batch_size} spread over the GPUs now")
 
     print(model)
 
