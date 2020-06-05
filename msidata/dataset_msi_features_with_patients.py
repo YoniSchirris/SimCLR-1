@@ -53,7 +53,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         # self.labels = pd.read_csv(csv_file)
 
         self.sampling_strategy = sampling_strategy
-        self.device = device
+        self.device = 'cpu' # To my knowledge, data loaders generally loads everythig onto CPU. We port to GPU once passed from dataloader
 
         if 'msidata' in root_dir:
             # set up stuff for MSI data
