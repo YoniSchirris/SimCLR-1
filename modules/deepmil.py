@@ -95,6 +95,9 @@ class Attention(nn.Module):
         return error, Y_hat
 
     def calculate_objective(self, X, Y, Y_prob, A):
+        """
+        Unused.
+        """
         Y = Y.float()
 
         # X = X.view(X.shape[0], X.shape[3], X.shape[1], X.shape[2]) # 1 x num_tiles x rgb x width x height
