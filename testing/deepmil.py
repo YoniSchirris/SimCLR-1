@@ -13,6 +13,8 @@ from utils import post_config_hook
 from modules import LogisticRegression
 from modules.deepmil import Attention
 from modules.transformations import TransformsSimCLR
+from modules.sync_batchnorm import convert_model
+
 
 from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDataset as dataset_msi_features
 
