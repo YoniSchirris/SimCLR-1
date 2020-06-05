@@ -109,6 +109,8 @@ class Attention(nn.Module):
 
         Y_onehot[int(Y.item())] = 1 # Y is either 0 or 1, but is wrapped inside a tensor and is a float
 
+        Y_onehot.to(device=Y_prob.device.type)  # set Y_onehot to same device as Y_prob
+
         neg_log_likelihood = -1 * Y_onehot.dot(torch.log(Y_prob)) # 1x1
 
         return neg_log_likelihood, A
