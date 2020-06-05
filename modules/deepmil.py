@@ -55,7 +55,7 @@ class Attention(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Linear(self.L * self.K, self.classes),
-            nn.Sigmoid()
+            # nn.Sigmoid() # Since we use the torch crossentropy class we need no sigmoid here
         )
 
     def forward(self, H):
@@ -76,10 +76,9 @@ class Attention(nn.Module):
 
         M = torch.mm(A, H)  # KxL
 
-        Y_prob = self.classifier(M)
-        Y_hat = torch.ge(Y_prob, 0.5).float()
-
-        return Y_prob, Y_hat, A
+        Y_out = self.classifier(M)
+        Y_hat = Y_out.softmax(dim=1).argmax() # take softmax over each batch. In this case, we have batch = 1
+        return Y_out, Y_hat, A
 
     # internal function to extract grad
     def _set_grad(self, var):
@@ -88,7 +87,7 @@ class Attention(nn.Module):
         return hook
 
     # AUXILIARY METHODS
-    def calculate_classification_error(self, X, Y, Y_hat):
+    def calculate_classification_error(self, Y, Y_hat):
         Y = Y.float()
         # _, Y_hat, _ = self.forward(X)
         # print(Y_hat)

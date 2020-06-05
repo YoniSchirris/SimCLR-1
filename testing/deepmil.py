@@ -51,13 +51,15 @@ def train(args, loader, model, criterion, optimizer, writer):
             assert(len(set(patients)) == 1), f"We are loading several patients instead of just one. Check your dataloader. \nPatients: {patients}"
             patient = set(patients)
 
-            Y_prob, Y_hat, A = model.forward(x)
-            loss, _ = model.calculate_objective(data, Y, Y_prob, A)
+            Y_out, Y_hat, A = model.forward(x)
+
+            loss = criterion(input=Y_out, target=Y.unsqueeze(0))      # use toch crossentropy loss instead of self-engineered loss
+
+            error, _ = model.calculate_classification_error(Y, Y_hat)
+            acc = 1. - error
+
             train_loss = loss.item()
             loss_epoch += train_loss
-            Y_hat = Y_hat.argmax(1) #TODO check this
-            error, _ = model.calculate_classification_error(data, Y, Y_hat)
-            acc = 1. - error
             args.global_step+=1
 
         accuracy_epoch += acc
@@ -135,19 +137,23 @@ def test(args, loader, model, criterion, optimizer):
             input_paths = [path[0] for path in input_paths]
 
             output = model(x)
-            Y_prob, Y_hat, A = model.forward(x)
-            loss, _ = model.calculate_objective(data, Y, Y_prob, A)
+            Y_out, Y_hat, A = model.forward(x)
+            loss = criterion(input=Y_out, target=Y.unsqueeze(0))      # use toch crossentropy loss instead of self-engineered loss
+
+            # loss, _ = model.calculate_objective(data, Y, Y_prob, A)
             train_loss = loss.item()
             
-            Y_hat = Y_hat.argmax(1) #TODO check this
-            error, _ = model.calculate_classification_error(data, Y, Y_hat)
+            # Y_hat = Y_hat.argmax(1) #TODO check this
+            error, _ = model.calculate_classification_error(Y, Y_hat)
             acc = 1. - error
 
             loss_epoch += train_loss
             accuracy_epoch += acc
 
+            Y_prob = Y_out.float().softmax(dim=0)[1].cpu().item() # We get probabilities, and get the probability for MSI
+
             labels.append(Y.item())   # Y is a single label
-            preds.append(Y_hat.item())   # Y_hat is argmaxed, and should be a single label
+            preds.append(Y_prob) 
             saved_patients.append(patient)  # We asserted that we have a single patient
             saved_input_paths += input_paths    # This is fairly useless now, as we can't combine them. But they will be useful for backpropping the MSIness label
 
@@ -217,13 +223,18 @@ def main(_run, _log):
     if args.classification_head == 'logistic':
         model = LogisticRegression(simclr_model.n_features, n_classes)
         optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+        criterion = torch.nn.CrossEntropyLoss()
     elif args.classification_head == 'deepmil':
         model = Attention()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.clsfc_lr, betas=(0.9, 0.999), weight_decay=args.clsfc_reg)   #---- optimizer from deepMIL
+        class_distribution = train_dataset.get_class_distribution()
+        print(f'Class distribution for MSS, MSI is {class_distribution}')
+        criterion = torch.nn.CrossEntropyLoss(weight=class_distribution)
 
     model = model.to(args.device)
 
-    criterion = torch.nn.CrossEntropyLoss()
+    
+    
 
     # No multi-gpu support for now
     # print(f"Using {args.n_gpu} GPUs")

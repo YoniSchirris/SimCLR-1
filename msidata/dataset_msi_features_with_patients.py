@@ -125,6 +125,16 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
         return (vectors, labels, patient_ids, list(patient_data['img']))
 
+    def get_class_distribution(self):
+        # take the mean of patient-grouped labels, this gives the patient label as they are all the same
+        # group the patients by labels and count the number of patients per label
+        # make it a numpy array
+        # make it a torch tensor
+        # This is 2D, squeeze it to make it 1D as is required by the torch crossentropy class
+        # This returns the count for class [0, 1], meaning [MSS, MSIMUT]
+        num_classes = torch.from_numpy(self.grouped_labels.mean().groupby('label').count().to_numpy()).squeeze()
+        return num_classes.float() / num_classes.sum()
+
 
     def _get_tile_item(self, idx):
         if torch.is_tensor(idx):
