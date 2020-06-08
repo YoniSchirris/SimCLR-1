@@ -18,5 +18,11 @@ dfgroup['count'] = df.groupby['patient'].count()['label'] # can be used to disca
 labels = dfgroup['labels'].values
 preds = dfgroup['preds'].values
 
-print(f'AUC for {filepath} is {metrics.roc_auc_score(y_true=labels, y_score=preds)}')
+binary_preds = np.zeros(preds.shape)
+
+binary_preds[preds > 0.5] = 1
+
+print(f'Unbalanced AUC for {filepath} is {metrics.roc_auc_score(y_true=labels, y_score=preds)}')
+print(f'F1 score (balanced) for {filepath} is {metrics.f1_score(y_true=labels, y_pred=binary_preds)}')
+
 
