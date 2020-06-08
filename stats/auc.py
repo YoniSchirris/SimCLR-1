@@ -35,8 +35,11 @@ dfgroup_balanced = df_msi_sub.append(df_mss)
 balanced_labels = dfgroup_balanced['labels'].values
 balanced_preds = dfgroup_balanced['preds'].values
 
-print(f'Unbalanced AUC for {filepath} is {metrics.roc_auc_score(y_true=labels, y_score=preds)}')
+prec, rec, thresholds = metrics.precision_recall_curve(y_true=labels, y_true=preds)
+
+print(f'Unbalanced ROC AUC  for {filepath} is {metrics.roc_auc_score(y_true=labels, y_score=preds)}')
 print(f'Balanced AUC for {filepath} is {metrics.roc_auc_score(y_true=balanced_labels, y_score=balanced_preds)}')
+print(f"Unbalanced PR AUC for {filepath} is {metric.auc(prec, rec)}")
 print(f'F1 score (balanced) for {filepath} is {metrics.f1_score(y_true=labels, y_pred=binary_preds)}')
 
 
