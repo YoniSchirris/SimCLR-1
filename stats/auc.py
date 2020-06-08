@@ -13,7 +13,7 @@ df = pd.read_csv(filepath)
 
 dfgroup = df.groupby(['patient']).mean()
 
-dfgroup['count'] = df.groupby['patient'].count()['label'] # can be used to discard patients with very few tiles
+dfgroup['count'] = df.groupby('patient').count()['labels'] # can be used to discard patients with very few tiles
 
 labels = dfgroup['labels'].values
 preds = dfgroup['preds'].values
