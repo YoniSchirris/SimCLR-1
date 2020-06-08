@@ -22,7 +22,21 @@ binary_preds = np.zeros(preds.shape)
 
 binary_preds[preds > 0.5] = 1
 
+df_msi = dfgroup[dfgroup['labels']==0]
+df_mss = dfgroup[dfgroup['labels']==1]
+
+min_size = min(len(df_msi.index), len(df_mss.index))
+
+df_msi_sub = df_msi.sample(min_size)
+df_mss_sub = df_mss.sample(min_size)
+
+dfgroup_balanced = df_msi_sub.append(df_mss)
+
+balanced_labels = dfgroup_balanced['labels'].values
+balanced_preds = dfgroup_balanced['preds'].values
+
 print(f'Unbalanced AUC for {filepath} is {metrics.roc_auc_score(y_true=labels, y_score=preds)}')
+print(f'Balanced AUC for {filepath} is {metrics.roc_auc_score(y_true=balanced_labels, y_score=balanced_preds)}')
 print(f'F1 score (balanced) for {filepath} is {metrics.f1_score(y_true=labels, y_pred=binary_preds)}')
 
 
