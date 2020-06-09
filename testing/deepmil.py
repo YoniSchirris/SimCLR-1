@@ -231,6 +231,8 @@ def main(_run, _log):
         optimizer = torch.optim.Adam(model.parameters(), lr=args.clsfc_lr, betas=(0.9, 0.999), weight_decay=args.clsfc_reg)   #---- optimizer from deepMIL
         class_distribution = train_dataset.get_class_distribution()
         print(f'Class distribution for MSS, MSI is {class_distribution}')
+        class_weights = class_distribution.max() / class_distribution ## Scales e.g. [0.15,0.85] to [5.66, 1]
+        print(f'Setting CELoss weights to {class_weights}')
         criterion = torch.nn.CrossEntropyLoss(weight=class_distribution.to(args.device))
 
     model = model.to(args.device)
