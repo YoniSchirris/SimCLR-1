@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu'):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=True):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -51,7 +51,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
                 primarily used for MIL training
         """
         # self.labels = pd.read_csv(csv_file)
-
+        self.balance_classes = balance_classes
         self.sampling_strategy = sampling_strategy
         self.device = 'cpu' # To my knowledge, data loaders generally loads everythig onto CPU. We port to GPU once passed from dataloader
 
@@ -66,8 +66,11 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
         self.root_dir = root_dir
         self.setup()
-        self.labels = pd.read_csv(
-            self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
+
+        # Sample per patient, not per tile
+        # Add possibility of fixing class imbalance
+        self.labels = self._get_labels(data_fraction)
+        
 
         if sampling_strategy == 'patient':
             self.grouped_labels = self.labels.groupby(['patient_id'])
@@ -95,6 +98,51 @@ class PreProcessedMSIFeatureDataset(Dataset):
                 idx)
 
         return one_or_two_tiles, label, patient_id, img_name
+
+    def _get_labels(self, data_fraction):
+
+        raw_df = pd.read_csv(self.root_dir + 'data.csv')
+
+        if self.sampling_strategy=='tile':
+            # Randomly sample tiles to reduce the amount of data
+            subsample_df = raw_df.sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
+        elif self.sampling_strategy=='patient':
+            # Randomly sample patients to reduce the amount of data
+            # change to sample patients
+            #TODO maybe add subsampling from each class separately?
+            patients = raw_df['patient_id'].unique()
+            subsample_patients = np.random.choice(patients, int(data_fraction*len(patients)))
+            subsample_df = raw_df[raw_df['patient_id'].isin(subsample_patients)]
+            subsample_df = raw_df.sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
+        else:
+            raise NotImplementedError()
+
+        if self.balance_classes:
+            msi_patients = subsample_df[subsample_df['label']==1]['patient_id'].unique()
+            mss_patients = subsample_df[subsample_df['label']==0]['patient_id'].unique()
+
+            min_class_group_size = min(len(msi_patients), len(mss_patients))
+
+            sub_msi_patients = np.random.choice(msi_patients, min_class_group_size)
+            sub_mss_patients = np.random.choice(mss_patients, min_class_group_size)
+
+            sub_patients = np.concatenate((sub_msi_patients, sub_mss_patients), axis=0)
+
+            balanced_df = subsample_df[subsample_df['patient_id'].isin(sub_patients)]
+        else: 
+            # well, not actually balanced..
+            balanced_df = subsample_df
+
+        print(f"===============\nEffect of subsampling on dataset:\n\nRaw dataset:\n\
+            {raw_df.groupby('patient_id').mean().describe()}\
+                \n\n\
+                Sampled dataset:\
+                    \n{balanced_df.groupby('patient_id').mean().describe()}")
+        
+
+        return balanced_df
+
+        
 
     def _get_patient_items(self, idx):
         if torch.is_tensor(idx):

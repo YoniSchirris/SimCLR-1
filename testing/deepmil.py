@@ -185,20 +185,22 @@ def main(_run, _log):
             root_dir            =   args.path_to_msi_data, 
             sampling_strategy   =   sampling_strategy,
             data_fraction       =   args.data_testing_train_fraction,
-            device              =   args.device
+            device              =   args.device,
+            balance_classes     =   args.data_testing_balance_training_data
             )
         test_dataset = dataset_msi_features(
             root_dir            =   args.path_to_test_msi_data, 
             sampling_strategy   =   sampling_strategy,
             data_fraction       =   args.data_testing_test_fraction,
-            device              =   args.device
+            device              =   args.device,
+            balance_classes     =   False   # I'd rather have all data, and subsample after predictions have been made
             )
     else:
         raise NotImplementedError
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=1,
+        batch_size=1,   # taking 1 patient each. getting all patient's tiles
         shuffle=False,
         drop_last=True,
         num_workers=args.workers,
