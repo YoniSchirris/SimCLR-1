@@ -12,9 +12,13 @@ path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yo
 pretrain: True 
 
 data_pretrain_fraction: 0.1
+
+data_testing_balance_training_data: True
 data_testing_train_fraction: 0.1
 data_testing_test_fraction: 0.1
+
 data_create_feature_vectors_fraction: 0.1
+
 
 # model options
 resnet: "resnet50"
@@ -27,6 +31,7 @@ weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
 temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
 
 # reload options
+reload_model: True
 model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
 epoch_num: 90 # set to checkpoint number
 
