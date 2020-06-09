@@ -121,10 +121,16 @@ class PreProcessedMSIFeatureDataset(Dataset):
             msi_patients = subsample_df[subsample_df['label']==1]['patient_id'].unique()
             mss_patients = subsample_df[subsample_df['label']==0]['patient_id'].unique()
 
+            print(f'Pre-downsampling:\nWe have {len(msi_patients)} MSI patients')
+            print(f'We have {len(mss_patients)} MSS patients')
+
             min_class_group_size = min(len(msi_patients), len(mss_patients))
 
             sub_msi_patients = np.random.choice(msi_patients, min_class_group_size)
             sub_mss_patients = np.random.choice(mss_patients, min_class_group_size)
+
+            print(f'Post-downsampling:\nWe have {len(sub_msi_patients)} MSI patients')
+            print(f'We have {len(sub_mss_patients)} MSS patients')
 
             sub_patients = np.concatenate((sub_msi_patients, sub_mss_patients), axis=0)
 
