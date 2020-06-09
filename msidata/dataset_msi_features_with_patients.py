@@ -134,6 +134,12 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
             sub_patients = np.concatenate((sub_msi_patients, sub_mss_patients), axis=0)
 
+            print(f'Length of concatenated patients: {len(sub_patients)}')
+            print(f'Length of unique concatenated patients: {len(sub_patients.unique())}')
+
+            print(sub_patients)
+            print(sub_patients.unique())
+
             balanced_df = subsample_df[subsample_df['patient_id'].isin(sub_patients)]
         else: 
             # well, not actually balanced..
