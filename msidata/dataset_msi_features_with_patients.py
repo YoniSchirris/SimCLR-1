@@ -88,6 +88,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         return full_data_len
 
     def __getitem__(self, idx):
+        t1 = time.time()
 
         if self.sampling_strategy == 'tile':
             one_or_two_tiles, label, patient_id, img_name = self._get_tile_item(
@@ -96,6 +97,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         elif self.sampling_strategy == 'patient':
             one_or_two_tiles, label, patient_id, img_name = self._get_patient_items(
                 idx)
+        print(f'Loading tile features took {time.time()-t1:.4f} seconds')
 
         return one_or_two_tiles, label, patient_id, img_name
 

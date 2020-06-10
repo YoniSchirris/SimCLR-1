@@ -21,12 +21,16 @@ from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDat
 import pandas as pd
 import time
 import datetime
+import time
 import os
 
 def train(args, loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     accuracy_epoch = 0
+    t5=time.time()
     for step, data in enumerate(loader):
+        print(f'Getting an item from enumerate loader takes {time.time()-t5:.2f} seconds')
+        t1 = time.time()
         optimizer.zero_grad()
 
         x = data[0]
@@ -51,7 +55,9 @@ def train(args, loader, model, criterion, optimizer, writer):
             assert(len(set(patients)) == 1), f"We are loading several patients instead of just one. Check your dataloader. \nPatients: {patients}"
             patient = set(patients)
 
+            t2 = time.time()
             Y_out, Y_hat, A = model.forward(x)
+            print(f'Forward took {time.time()-t2:.2f} seconds')
 
             loss = criterion(input=Y_out, target=Y.unsqueeze(0))      # use toch crossentropy loss instead of self-engineered loss
 
@@ -64,8 +70,16 @@ def train(args, loader, model, criterion, optimizer, writer):
 
         accuracy_epoch += acc
 
+        t3 = time.time()
         loss.backward()
+        print(f'Gradient calculation takes {time.time()-t3:.2f} seconds')
+
+        t4 = time.time()
         optimizer.step()
+        print(f'Optimizer takes {time.time()-t4:.2f} seconds')
+
+        print(f'Total: Takes {time.time()-t1:.2f} seconds')
+        t5 = time.time()
 
         # if step % 100 == 0:
         #     print(
@@ -228,7 +242,10 @@ def main(_run, _log):
         criterion = torch.nn.CrossEntropyLoss()
     elif args.classification_head == 'deepmil':
         model = Attention()
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.clsfc_lr, betas=(0.9, 0.999), weight_decay=args.clsfc_reg)   #---- optimizer from deepMIL
+        # optimizer = torch.optim.Adam(model.parameters(), lr=args.clsfc_lr, betas=(0.9, 0.999), weight_decay=args.clsfc_reg)   #---- optimizer from deepMIL
+
+        # Test other optimizer..
+        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
         class_distribution = train_dataset.get_class_distribution()
         print(f'Class distribution for MSS, MSI is {class_distribution}')
         class_weights = class_distribution.max() / class_distribution ## Scales e.g. [0.15,0.85] to [5.66, 1]
