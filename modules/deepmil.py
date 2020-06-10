@@ -8,7 +8,8 @@ class Attention(nn.Module):
     def __init__(self, hidden_dim=2048, num_classes=2):
         super(Attention, self).__init__()
         self.L = hidden_dim
-        self.D = int(hidden_dim / 2)
+        # self.D = int(hidden_dim / 2)
+        self.D = 128
         self.K = 1
         self.classes = num_classes
         self.A_grad = None
