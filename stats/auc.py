@@ -42,4 +42,7 @@ print(f'Balanced AUC for {filepath} is {metrics.roc_auc_score(y_true=balanced_la
 print(f"Unbalanced PR AUC for {filepath} is {metric.average_precision_score(labels, preds)}")
 print(f'F1 score (balanced) for {filepath} is {metrics.f1_score(y_true=labels, y_pred=binary_preds)}')
 
+print(f"Unbalanced PR AUC for {filepath} is {metrics.average_precision_score(labels, preds)}")
+print(f'Balanced PR AUC is {metrics.average_precision_score(balanced_labels, balanced_preds)}')
+
 
