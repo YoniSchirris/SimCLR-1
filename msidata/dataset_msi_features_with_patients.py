@@ -128,8 +128,8 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
             min_class_group_size = min(len(msi_patients), len(mss_patients))
 
-            sub_msi_patients = np.random.choice(msi_patients, min_class_group_size)
-            sub_mss_patients = np.random.choice(mss_patients, min_class_group_size)
+            sub_msi_patients = np.random.choice(msi_patients, min_class_group_size, replace=False)
+            sub_mss_patients = np.random.choice(mss_patients, min_class_group_size, replace=False)
 
             print(f'Post-downsampling:\nWe have {len(sub_msi_patients)} MSI patients')
             print(f'We have {len(sub_mss_patients)} MSS patients')
@@ -137,7 +137,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
             sub_patients = np.concatenate((sub_msi_patients, sub_mss_patients), axis=0)
 
             print(f'Length of concatenated patients: {len(sub_patients)}')
-            print(f'Length of unique concatenated patients: {len(sub_patients.unique())}')
+            print(f'Length of unique concatenated patients: {len(set(sub_patients))}')
 
             print(sub_patients)
             print(sub_patients.unique())
