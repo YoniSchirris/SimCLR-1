@@ -13,7 +13,7 @@ pretrain: True
 
 data_pretrain_fraction: 0.1
 
-data_testing_balance_training_data: True
+data_testing_balance_training_data: False
 data_testing_train_fraction: 0.1
 data_testing_test_fraction: 0.1
 
@@ -44,4 +44,4 @@ classification_head: 'logistic' # or 'logistic' or 'deepmil'
 logistic_batch_size: 256
 logistic_epochs: 500
 clsfc_lr: 0.0005
-clsfc_reg: 1.0e-5
+clsfc_reg: 10.0e-5
