@@ -47,6 +47,7 @@ class SimCLR(nn.Module):
         resnets = {
             "resnet18": torchvision.models.resnet18(),
             "resnet50": torchvision.models.resnet50(),
+            "shufflenetv2_x1_0": torchvision.models.shufflenet_v2_x1_0()
         }
         if name not in resnets.keys():
             raise KeyError(f"{name} is not a valid ResNet version")
