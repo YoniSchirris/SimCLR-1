@@ -4,7 +4,15 @@ from modules import SimCLR, LARS
 
 
 def load_model(args, loader, reload_model=False):
-    model = SimCLR(args)
+
+    if args.feature_learning == "unsupervised":
+        model = SimCLR(args)        
+    elif args.feature_learning == "supervised":
+        args.normalize = False      # we get class outputs, so no need for a normalize
+        args.projection_dim = 2     # num_classes. we are mostly looking at binary classification problems
+        model = SimCLR(args)
+    else:
+        raise NotImplementedError
 
     if reload_model:
         model_fp = os.path.join(
@@ -16,7 +24,7 @@ def load_model(args, loader, reload_model=False):
 
     scheduler = None
     if args.optimizer == "Adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)  # TODO: LARS
+        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     elif args.optimizer == "LARS":
         # optimized using LARS with linear learning rate scaling
         # (i.e. LearningRate = 0.3 × BatchSize/256) and weight decay of 10−6.

@@ -23,13 +23,23 @@ class SimCLR(nn.Module):
         self.encoder = self.get_resnet(args.resnet)
 
         self.n_features = self.encoder.fc.in_features  # get dimensions of fc layer
+
+        # set hidden size and bias for projection layer, depending on unsupervised or supervised training
+        if args.feature_learning=="unsupervised":
+            self.projection_hidden = self.n_features 
+            self.bias = False
+        elif args.feature_learning=="supervised":
+            self.projection_hidden = args.projection_hidden
+            self.bias = True
+
+
         self.encoder.fc = Identity()  # remove fully-connected layer after pooling layer
 
         # We use a MLP with one hidden layer to obtain z_i = g(h_i) = W(2)σ(W(1)h_i) where σ is a ReLU non-linearity.
         self.projector = nn.Sequential(
-            nn.Linear(self.n_features, self.n_features, bias=False),
+            nn.Linear(self.n_features, self.projection_hidden, bias=self.bias),
             nn.ReLU(),
-            nn.Linear(self.n_features, args.projection_dim, bias=False),
+            nn.Linear(self.projection_hidden, args.projection_dim, bias=self.bias),
         )
         
 

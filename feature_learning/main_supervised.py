@@ -1,3 +1,11 @@
+## Yoni Schirris. 06/10/2020
+## Exact copy of main.py (now main_unsupervised.py)
+## Idea is to keep functionality of both supervised and unsupervised in here, with some switches that change only minor
+## things to switch between supervised and unsupervised learning.
+## Thus, in the end, we should again have a single "main.py" file. 
+
+
+
 import os
 import torch
 import torchvision
@@ -18,6 +26,7 @@ from model import load_model, save_model
 from modules import NT_Xent
 from modules.sync_batchnorm import convert_model
 from modules.transformations import TransformsSimCLR
+from modules.transformations.supervised_transform import TransformsSupervised
 from utils import post_config_hook
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 
@@ -27,17 +36,24 @@ from experiment import ex
 
 def train(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
-    for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
-
+    for step, (data, _, _, _) in enumerate(train_loader):
+        # TODO fix the object we get from the dataloader. This is bound to get super messy.
+        # Also, what will be the nicest thing for later?
+        # Or not think about that too much?
         optimizer.zero_grad()
-        x_i = x_i.to(args.device)
-        x_j = x_j.to(args.device)
+        if args.feature_learning=='unsupservised':
+            x_i = data[0]
+            x_j = data[1]
+            x_i = x_i.to(args.device)
+            x_j = x_j.to(args.device)
+            # positive pair, with encoding
+            h_i, z_i = model(x_i)
+            h_j, z_j = model(x_j)
 
-        # positive pair, with encoding
-        h_i, z_i = model(x_i)
-        h_j, z_j = model(x_j)
+            loss = criterion(z_i, z_j)
 
-        loss = criterion(z_i, z_j)
+        elif args.feature_learning=='supervised':
+            x = data[0]
 
         if apex and args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -77,9 +93,15 @@ def main(_run, _log):
             root, download=True, transform=TransformsSimCLR(size=32)
         )
     elif args.dataset == 'msi':
-        # train_dataset = custom_histo_dataset
-        #TODO using a fraction of the data at this moment
-        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=args.data_pretrain_fraction)
+        if args.feature_learning == "unsupervised":
+            transform = TransformsSimCLR(size=224)
+        elif args.feature_learning == "supervised":
+            transform = TransformsSupervised(size=224)
+
+        train_dataset = dataset_msi(
+            root_dir=args.path_to_msi_data,         ## TODO: Add way of getting the correct "new" file of self-assigned labels per tile
+            transform=transform,  
+            data_fraction=args.data_pretrain_fraction)
     else:
         raise NotImplementedError
 
@@ -89,16 +111,17 @@ def main(_run, _log):
         shuffle=(train_sampler is None),
         drop_last=True,
         num_workers=args.workers,
-        sampler=train_sampler,
+        sampler=train_sampler,                  ## TODO: Add train & validate sampler
     )
 
-    model, optimizer, scheduler = load_model(args, train_loader)
+    model, optimizer, scheduler = load_model(args, train_loader, reload_model=args.reload_model)
 
     print(f"Using {args.n_gpu}'s")
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
         model = convert_model(model)
         model = model.to(args.device)
+        #TODO Check the batch size.. are we only training with 32 total so 8 per GPU? That's veeeery few.
 
     print(model)
 
@@ -106,7 +129,11 @@ def main(_run, _log):
     os.makedirs(tb_dir)
     writer = SummaryWriter(log_dir=tb_dir)
 
-    criterion = NT_Xent(args.batch_size, args.temperature, args.device)
+    if args.feature_learning == "unsupservised":
+        criterion = NT_Xent(args.batch_size, args.temperature, args.device)
+    elif args.feature_learning == "supervised":
+        #TODO Add class distribution weights
+        criterion = torch.nn.CrossEntropyLoss()
 
     args.global_step = 0
     args.current_epoch = 0

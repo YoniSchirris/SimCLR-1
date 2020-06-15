@@ -23,7 +23,11 @@ data_create_feature_vectors_fraction: 0.1
 # model options
 resnet: "resnet50"
 normalize: True
-projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space"
+projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space" only used for 
+
+# supervised or unsupservised learning?
+feature_learning: "supervised"
+projection_hidden: 128      # only used for supervised feature learning
 
 # loss options
 optimizer: "Adam" # or LARS (experimental)
