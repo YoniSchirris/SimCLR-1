@@ -64,6 +64,9 @@ class PreProcessedMSIDataset(Dataset):
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
+
+        #TODO Check this color axis swap, this doesn't seem to make sense and
+
         imt = im.transpose((2, 0, 1))
         # ----- End of transform
 

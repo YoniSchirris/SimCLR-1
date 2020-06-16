@@ -1,26 +1,34 @@
 import os
 import torch
+import torchvision.models as models
 from modules import SimCLR, LARS
 
 
-def load_model(args, loader, reload_model=False):
+def load_model(args, loader, reload_model=False, model_type='simclr'):
 
-    if args.feature_learning == "unsupervised":
-        model = SimCLR(args)        
-    elif args.feature_learning == "supervised":
-        args.normalize = False      # we get class outputs, so no need for a normalize
-        args.projection_dim = 2     # num_classes. we are mostly looking at binary classification problems
-        model = SimCLR(args)
-    else:
-        raise NotImplementedError
+    possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenet-v1_x1_0': models.shufflenet_v2_x1_0}
 
-    if reload_model:
-        model_fp = os.path.join(
-            args.model_path, "checkpoint_{}.tar".format(args.epoch_num)
-        )
-        model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+    if model_type == 'simclr':
+        if args.feature_learning == "unsupervised":
+            model = SimCLR(args)        
+        elif args.feature_learning == "supervised":
+            args.normalize = False      # we get class outputs, so no need for a normalize
+            args.projection_dim = 2     # num_classes. we are mostly looking at binary classification problems
+            model = SimCLR(args)
+        else:
+            raise NotImplementedError
 
-    model = model.to(args.device)
+        if reload_model:
+            model_fp = os.path.join(
+                args.model_path, "checkpoint_{}.tar".format(args.epoch_num)
+            )
+            model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+
+        model = model.to(args.device)
+
+    elif model_type in possible_non_simclr_models:
+        model = possible_non_simclr_models[model_type](pretrained=True)
+        model.fc = torch.nn.Identity()
 
     scheduler = None
     if args.optimizer == "Adam":

@@ -21,12 +21,12 @@ data_create_feature_vectors_fraction: 0.1
 
 
 # model options
-resnet: "resnet50"
+resnet: "resnet50" # the backbone to be used by SimCLR: resnet18, resnet50, shufflenetv2_x1_0
 normalize: True
 projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space" only used for 
 
 # supervised or unsupservised learning?
-feature_learning: "supervised"
+feature_learning: "unsupervised"
 projection_hidden: 128      # only used for supervised feature learning
 
 # loss options
@@ -35,7 +35,7 @@ weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
 temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
 
 # reload options
-reload_model: True
+reload_model: False
 model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
 epoch_num: 90 # set to checkpoint number
 
@@ -44,6 +44,7 @@ fp16: False
 fp16_opt_level: "O2"
 
 # testing options
+logistic_extractor: 'simclr' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
 classification_head: 'logistic' # or 'logistic' or 'deepmil'
 logistic_batch_size: 256
 logistic_epochs: 500
