@@ -20,7 +20,7 @@ import datetime
 
 
 
-def inference(loader, context_model, device):
+def inference(args, loader, context_model, device):
     feature_vector = []
     labels_vector = []
     patients = []
@@ -52,9 +52,9 @@ def inference(loader, context_model, device):
     return feature_vector, labels_vector, patients, imgs
 
 
-def get_features(context_model, train_loader, test_loader, device):
-    train_X, train_y, train_patients, train_imgs = inference(train_loader, context_model, device)
-    test_X, test_y, test_patients, test_imgs = inference(test_loader, context_model, device)
+def get_features(args, context_model, train_loader, test_loader, device):
+    train_X, train_y, train_patients, train_imgs = inference(args, train_loader, context_model, device)
+    test_X, test_y, test_patients, test_imgs = inference(args, test_loader, context_model, device)
     return train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs
 
 
@@ -237,7 +237,7 @@ def main(_run, _log):
 
     print("### Creating features from pre-trained context model ###")
     (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
-        simclr_model, train_loader, test_loader, args.device
+        args, simclr_model, train_loader, test_loader, args.device
     )
 
     arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
