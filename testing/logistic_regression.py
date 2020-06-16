@@ -9,6 +9,7 @@ from model import load_model
 from utils import post_config_hook
 
 from modules import LogisticRegression
+from modules.deepmil import Attention
 from modules.transformations import TransformsSimCLR
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
@@ -29,7 +30,10 @@ def inference(loader, context_model, device):
 
         # get encoding
         with torch.no_grad():
-            h, z = context_model(x)
+            if args.logistic_extractor == 'simclr':
+                h, z = context_model(x)
+            else:
+                h = context_model(x)
 
         h = h.detach()
 
@@ -74,23 +78,37 @@ def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size
 def train(args, loader, simclr_model, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
-    for step, (x, y, patient) in enumerate(loader):
+    for step, data in enumerate(loader):
         optimizer.zero_grad()
+
+        x = data[0]
+        y = data[1]
+        
+
 
         x = x.to(args.device)
         y = y.to(args.device)
 
-        output = model(x)
-        loss = criterion(output, y)
+        if args.classification_head == 'logistic':
+            output = model(x)
+            loss = criterion(output, y)
+            predicted = output.argmax(1)
+            acc = (predicted == y).sum().item() / y.size(0)
+            loss_epoch += loss.item()
 
-        predicted = output.argmax(1)
-        acc = (predicted == y).sum().item() / y.size(0)
+        elif args.classification_head == 'deepmil':
+            Y_prob, Y_hat, A = model.forward(x)
+            loss, _ = model.calculate_objective(data, bag_label, Y_prob, A)
+            train_loss += loss.data[0]
+            loss_epoch += train_loss
+            error, _ = model.calculate_classification_error(data, bag_label, Y_hat)
+            acc = 1. - error
+        
         accuracy_epoch += acc
 
         loss.backward()
         optimizer.step()
 
-        loss_epoch += loss.item()
         # if step % 100 == 0:
         #     print(
         #         f"Step [{step}/{len(loader)}]\t Loss: {loss.item()}\t Accuracy: {acc}"
@@ -168,8 +186,14 @@ def main(_run, _log):
             transform=TransformsSimCLR(size=224).test_transform,
         )
     elif args.dataset == "msi":
-        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=args.data_testing_train_fraction)
-        test_dataset = dataset_msi(root_dir=args.path_to_test_msi_data, transform=TransformsSimCLR(size=224).test_transform, data_fraction=args.data_testing_test_fraction)
+        train_dataset = dataset_msi(
+            root_dir=args.path_to_msi_data, 
+            transform=TransformsSimCLR(size=224).test_transform, 
+            data_fraction=args.data_testing_train_fraction)
+        test_dataset = dataset_msi(
+            root_dir=args.path_to_test_msi_data, 
+            transform=TransformsSimCLR(size=224).test_transform, 
+            data_fraction=args.data_testing_test_fraction)
     else:
         raise NotImplementedError
 
@@ -189,14 +213,23 @@ def main(_run, _log):
         num_workers=args.workers,
     )
 
-    simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
+    simclr_model, _, _ = load_model(args, train_loader, reload_model=True, model_type=args.logistic_extractor)
     simclr_model = simclr_model.to(args.device)
     simclr_model.eval()
 
     ## Logistic Regression
     # n_classes = 10  # stl-10
     n_classes = 2  # MSI VS MSS
-    model = LogisticRegression(simclr_model.n_features, n_classes)
+    
+    if args.logistic_extractor == 'simclr':
+        n_features = simclr_model.encoder.fc.in_features
+    else:
+        n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclr_v1_x1_0': 1024}[args.logistic_extractor]
+
+    if args.classification_head == 'logistic':
+        model = LogisticRegression(n_features, n_classes)
+    elif args.classification_head == 'deepmil':
+        model = Attention()
     model = model.to(args.device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
