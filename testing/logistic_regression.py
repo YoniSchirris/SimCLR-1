@@ -222,7 +222,7 @@ def main(_run, _log):
     n_classes = 2  # MSI VS MSS
     
     if args.logistic_extractor == 'simclr':
-        n_features = simclr_model.encoder.fc.in_features
+        n_features = simclr_model.n_features
     else:
         n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclr_v1_x1_0': 1024}[args.logistic_extractor]
 
