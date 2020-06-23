@@ -83,11 +83,16 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
 
         x = data[0]
         y = data[1]
-        
-
 
         x = x.to(args.device)
         y = y.to(args.device)
+
+        if not args.precompute_features:
+            # Our loader is now loading images, not feature vectors
+            simclr_model.eval()
+            with torch.no_grad():
+                h, z = simclr_model.forward(x)
+                x = h    
 
         if args.classification_head == 'logistic':
             output = model(x)
@@ -127,11 +132,22 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
     img_names = []
 
     model.eval()
-    for step, (x, y, patient) in enumerate(loader):
+    for step, data in enumerate(loader):
         model.zero_grad()
+
+        x = data[0]
+        y = data[1]
+        patient = data[2]
 
         x = x.to(args.device)
         y = y.to(args.device)
+
+        if not args.precompute_features:
+            # Our loader is now loading images, not feature vectors
+            simclr_model.eval()
+            with torch.no_grad():
+                h, z = simclr_model.forward(x)
+                x = h    
 
         output = model(x)
 
@@ -235,14 +251,17 @@ def main(_run, _log):
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     criterion = torch.nn.CrossEntropyLoss()
 
-    print("### Creating features from pre-trained context model ###")
-    (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
-        args, simclr_model, train_loader, test_loader, args.device
-    )
+    if args.precompute_features:
+        print("### Creating features from pre-trained context model ###")
+        (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
+            args, simclr_model, train_loader, test_loader, args.device
+        )
 
-    arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
-        train_X, train_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, test_patients, test_imgs
-    )
+        arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
+            train_X, train_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, test_patients, test_imgs
+        )
+    else:
+        arr_train_loader, arr_test_loader = train_loader, test_loader
 
     for epoch in range(args.logistic_epochs):
         loss_epoch, accuracy_epoch = train(

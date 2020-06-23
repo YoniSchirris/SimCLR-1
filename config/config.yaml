@@ -50,3 +50,4 @@ logistic_batch_size: 256
 logistic_epochs: 500
 clsfc_lr: 0.0005
 clsfc_reg: 10.0e-5
+precompute_features: True
