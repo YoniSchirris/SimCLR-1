@@ -13,6 +13,8 @@ from modules.deepmil import Attention
 from modules.transformations import TransformsSimCLR
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
+from msidata.save_feature_vectors import infer_and_save
+from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDataset
 
 import pandas as pd
 import time
@@ -161,7 +163,13 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
 
         labels += y.cpu().tolist()
         preds += predicted.cpu().tolist()
-        patients += patient.cpu().tolist()
+
+        if isinstance(patient, torch.Tensor):
+            # Happens when using dataset_msi, as we return a hash, which is an integer, which is made into a tensor
+            patients += patient.cpu().tolist()
+        else:
+            # Happens when using dataset_Msi_features_with_patients, as we return the patient id as a string, which can't be tensorfied
+            patients += list(patient)
 
 
     return loss_epoch, accuracy_epoch, labels, preds, patients
@@ -252,14 +260,62 @@ def main(_run, _log):
     criterion = torch.nn.CrossEntropyLoss()
 
     if args.precompute_features:
-        print("### Creating features from pre-trained context model ###")
-        (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
-            args, simclr_model, train_loader, test_loader, args.device
-        )
 
-        arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
-            train_X, train_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, test_patients, test_imgs
-        )
+        if args.precompute_features_in_memory:
+            print("### Creating features from pre-trained context model ###")
+            (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
+                args, simclr_model, train_loader, test_loader, args.device
+            )
+
+            arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
+                train_X, train_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, test_patients, test_imgs
+            )
+        else:
+            print("### Creating and saving features from pre-trained context model ###")
+            assert args.logistic_extractor == 'simclr', "infer_and_save is not implemented for other than the simclr model"
+            assert args.data_testing_train_fraction == 1 and args.data_testing_test_fraction == 1, "Bugs might occur when we do not save feature vectors for all data due to sampling issues"
+
+            run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
+
+            # This overwrites any other saved feature vectors we have. That means that we can NOT run several scripts at the same time..
+
+            infer_and_save(loader=train_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}')
+            infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}')
+            
+            # Overwriting previous variable names to reduce memory load
+            train_dataset = PreProcessedMSIFeatureDataset(
+                root_dir=args.path_to_msi_data, 
+                transform=None, 
+                data_fraction=1,
+                sampling_strategy='tile',
+                append_img_path_with=f'_{run_id}'
+                
+            )
+            test_dataset = PreProcessedMSIFeatureDataset(
+                root_dir=args.path_to_test_msi_data, 
+                transform=None, 
+                data_fraction=1,
+                sampling_strategy='tile',
+                append_img_path_with=f'_{run_id}'
+            )
+
+            train_loader = torch.utils.data.DataLoader(
+                train_dataset,
+                batch_size=args.logistic_batch_size,
+                shuffle=True,
+                drop_last=True,
+                num_workers=args.workers,
+            )
+
+            test_loader = torch.utils.data.DataLoader(
+                test_dataset,
+                batch_size=args.logistic_batch_size,
+                shuffle=False,
+                drop_last=True,
+                num_workers=args.workers,
+            )
+
+            arr_train_loader, arr_test_loader = train_loader, test_loader
     else:
         arr_train_loader, arr_test_loader = train_loader, test_loader
 

@@ -31,11 +31,9 @@ import datetime
 
 
 
-def infer_and_save(loader, context_model, device):
+def infer_and_save(loader, context_model, device, append_with=''):
     for step, (x, y, patient, img_names) in enumerate(loader):
         x = x.to(device)
-
-        print(f'Size of x: {x.shape}')
 
         # get encoding
         with torch.no_grad():
@@ -43,11 +41,9 @@ def infer_and_save(loader, context_model, device):
 
         h = h.detach()
 
-        print(f'Size of h: {h.shape}')
-
         for i, img_name in enumerate(img_names):
             feature_vec = h[i]
-            torch.save(feature_vec, img_name.replace('.png', '.pt'))
+            torch.save(feature_vec, img_name.replace('.png', f'{append_with}.pt'))
 
         if step % 20 == 0:
             print(f"Step [{step}/{len(loader)}]\t Computing features...")

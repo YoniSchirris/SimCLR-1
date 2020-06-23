@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=True):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=True, append_img_path_with=''):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -54,6 +54,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         self.balance_classes = balance_classes
         self.sampling_strategy = sampling_strategy
         self.device = 'cpu' # To my knowledge, data loaders generally loads everythig onto CPU. We port to GPU once passed from dataloader
+        self.append_img_path_with=append_img_path_with
 
         if 'msidata' in root_dir:
             # set up stuff for MSI data
@@ -97,7 +98,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         elif self.sampling_strategy == 'patient':
             one_or_two_tiles, label, patient_id, img_name = self._get_patient_items(
                 idx)
-        print(f'Loading tile features took {time.time()-t1:.4f} seconds')
+        # print(f'Loading tile features took {time.time()-t1:.4f} seconds')
 
         return one_or_two_tiles, label, patient_id, img_name
 
@@ -139,8 +140,8 @@ class PreProcessedMSIFeatureDataset(Dataset):
             print(f'Length of concatenated patients: {len(sub_patients)}')
             print(f'Length of unique concatenated patients: {len(set(sub_patients))}')
 
-            print(sub_patients)
-            print(sub_patients.unique())
+
+
 
             balanced_df = subsample_df[subsample_df['patient_id'].isin(sub_patients)]
         else: 
@@ -180,7 +181,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         # torch.load the pickled tensor
         # Place all the tensors in a list
         # Stack the tensors
-        vector_paths = [os.path.join(self.root_dir, img.replace('.png', '.pt')) for img in list(patient_data['img'])]
+        vector_paths = [os.path.join(self.root_dir, img.replace('.png', f"{self.append_img_path_with}.pt")) for img in list(patient_data['img'])]
         vectors = torch.stack([torch.load(vector_path, map_location=self.device) for vector_path in vector_paths])
 
         # import pdb; pdb.set_trace()
@@ -202,7 +203,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", ".pt") 
+        img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", f"{self.append_img_path_with}.pt") 
         vector = torch.load(img_name)
         label = self.labels.iloc[idx, 2]
         patient_id = self.labels.iloc[idx, 3]
