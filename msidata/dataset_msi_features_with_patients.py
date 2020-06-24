@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=True, append_img_path_with=''):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with=''):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -204,7 +204,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
             idx = idx.tolist()
 
         img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", f"{self.append_img_path_with}.pt") 
-        vector = torch.load(img_name)
+        vector = torch.load(img_name, map_location=self.device)
         label = self.labels.iloc[idx, 2]
         patient_id = self.labels.iloc[idx, 3]
         return vector, label, patient_id, img_name
