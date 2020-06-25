@@ -91,10 +91,15 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
 
         if not args.precompute_features:
             # Our loader is now loading images, not feature vectors
-            simclr_model.eval()
-            with torch.no_grad():
+            if args.freeze_encoder:
+                simclr_model.eval()
+                with torch.no_grad():
+                    h, z = simclr_model.forward(x)
+                    x = h
+            else:
+                simclr_model.train()
                 h, z = simclr_model.forward(x)
-                x = h    
+                x = h
 
         if args.classification_head == 'logistic':
             output = model(x)

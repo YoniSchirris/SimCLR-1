@@ -52,3 +52,4 @@ clsfc_lr: 0.0005
 clsfc_reg: 10.0e-5
 precompute_features: True
 precompute_features_in_memory: True
+freeze_encoder: True
