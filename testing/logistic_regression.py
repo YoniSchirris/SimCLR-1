@@ -221,11 +221,13 @@ def main(_run, _log):
     else:
         raise NotImplementedError
 
+    drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.logistic_batch_size,
         shuffle=True,
-        drop_last=True,
+        drop_last=drop_last,
         num_workers=args.workers,
     )
 
@@ -233,7 +235,7 @@ def main(_run, _log):
         test_dataset,
         batch_size=args.logistic_batch_size,
         shuffle=False,
-        drop_last=True,
+        drop_last=drop_last,
         num_workers=args.workers,
     )
 
@@ -303,7 +305,7 @@ def main(_run, _log):
                 train_dataset,
                 batch_size=args.logistic_batch_size,
                 shuffle=True,
-                drop_last=True,
+                drop_last=False,
                 num_workers=args.workers,
             )
 
@@ -311,7 +313,7 @@ def main(_run, _log):
                 test_dataset,
                 batch_size=args.logistic_batch_size,
                 shuffle=False,
-                drop_last=True,
+                drop_last=False,
                 num_workers=args.workers,
             )
 
