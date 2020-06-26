@@ -334,6 +334,10 @@ def main(_run, _log):
             arr_train_loader, arr_test_loader = train_loader, test_loader
     elif args.use_precomputed_features:
         assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
+
+        print(f"Removing SIMCLR model from memory, as we use precomputed features..")
+        del simclr_model
+        simclr_model = None
         arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
         arr_train_loader, arr_test_loader = train_loader, test_loader
