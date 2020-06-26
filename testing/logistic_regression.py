@@ -101,11 +101,11 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
         
         if args.logistic_extractor=='simclr':
             # Simclr returns (h, z)
-            h = hz[0]
+            h = out[0]
             x = h
         else:
             # Torchvision models return h
-            h = hz
+            h = out
             x = h
             # We name it x, since it's the input for the logistic regressors
     
