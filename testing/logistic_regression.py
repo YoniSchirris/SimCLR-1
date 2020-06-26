@@ -99,15 +99,16 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
                 simclr_model.train()
                 out = simclr_model.forward(x)
         
-        if args.logistic_extractor=='simclr':
-            # Simclr returns (h, z)
-            h = out[0]
-            x = h
-        else:
-            # Torchvision models return h
-            h = out
-            x = h
-            # We name it x, since it's the input for the logistic regressors
+        
+            if args.logistic_extractor=='simclr':
+                # Simclr returns (h, z)
+                h = out[0]
+                x = h
+            else:
+                # Torchvision models return h
+                h = out
+                x = h
+                # We name it x, since it's the input for the logistic regressors
     
 
         if args.classification_head == 'logistic':
@@ -159,11 +160,25 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
         y = y.to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
-            # Our loader is now loading images, not feature vectors
-            simclr_model.eval()
-            with torch.no_grad():
-                h, z = simclr_model.forward(x)
-                x = h    
+            if args.freeze_encoder:
+                simclr_model.eval()
+                with torch.no_grad():
+                    out = simclr_model.forward(x)
+     
+            else:
+                simclr_model.train()
+                out = simclr_model.forward(x)
+        
+        
+            if args.logistic_extractor=='simclr':
+                # Simclr returns (h, z)
+                h = out[0]
+                x = h
+            else:
+                # Torchvision models return h
+                h = out
+                x = h
+                # We name it x, since it's the input for the logistic regressors
 
         output = model(x)
 
