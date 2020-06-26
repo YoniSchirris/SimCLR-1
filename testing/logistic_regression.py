@@ -318,7 +318,6 @@ def main(_run, _log):
             )
         else:
             print("### Creating and saving features from pre-trained context model ###")
-            assert args.logistic_extractor == 'simclr', "infer_and_save is not implemented for other than the simclr model"
             assert args.data_testing_train_fraction == 1 and args.data_testing_test_fraction == 1, "Bugs might occur when we do not save feature vectors for all data due to sampling issues"
 
             run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
