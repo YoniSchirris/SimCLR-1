@@ -55,3 +55,7 @@ precompute_features_in_memory: True
 use_precomputed_features: True
 use_precomputed_features_id: '1'
 freeze_encoder: True
+
+use_focal_loss: True
+focal_loss_alpha: 1
+focal_loss_gamma: 2

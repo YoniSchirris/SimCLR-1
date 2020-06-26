@@ -11,6 +11,7 @@ from utils import post_config_hook
 from modules import LogisticRegression
 from modules.deepmil import Attention
 from modules.transformations import TransformsSimCLR
+from modules.losses.focal_loss import FocalLoss
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 from msidata.save_feature_vectors import infer_and_save
@@ -113,7 +114,16 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
 
         if args.classification_head == 'logistic':
             output = model(x)
-            loss = criterion(output, y)
+            if not args.use_focal_loss:
+                loss = criterion(output, y)
+            else:
+                # use focal loss
+                focal = FocalLoss(args.focal_loss_alpha, args.focal_loss_gamma)
+                loss = torch.nn.functional.cross_entropy(output,y, reduction='none')
+                loss = focal(loss)
+
+
+
             predicted = output.argmax(1)
             acc = (predicted == y).sum().item() / y.size(0)
             loss_epoch += loss.item()
