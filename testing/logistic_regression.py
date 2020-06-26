@@ -92,6 +92,7 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
         if not (args.precompute_features or args.use_precomputed_features):
             if args.freeze_encoder:
                 simclr_model.eval()
+                if args.mo
                 with torch.no_grad():
                     h, z = simclr_model.forward(x)
                     x = h
@@ -324,8 +325,8 @@ def main(_run, _log):
 
             # This overwrites any other saved feature vectors we have. That means that we can NOT run several scripts at the same time..
 
-            infer_and_save(loader=train_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}')
-            infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}')
+            infer_and_save(loader=train_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
+            infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             
             # Overwriting previous variable names to reduce memory load
             train_loader, test_loader = get_precomputed_dataloader(args, run_id)
