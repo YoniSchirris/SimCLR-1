@@ -42,7 +42,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
             with torch.no_grad():
                 h, z = context_model(x)
         else:
-            if model_type in ['imagenet-resnet18', 'imagenet-resnet50', 'imagenet-shufflenet-v1_x1_0':]
+            if model_type in ['imagenet-resnet18', 'imagenet-resnet50', 'imagenet-shufflenet-v1_x1_0']:
                 context_model.fc = torch.nn.Identity()
                 with torch.no_grad():
                     h = context_model(x)
