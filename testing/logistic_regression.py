@@ -281,12 +281,10 @@ def main(_run, _log):
         num_workers=args.workers,
     )
 
-    if not args.use_precomputed_features:
-        simclr_model, _, _ = load_model(args, train_loader, reload_model=True, model_type=args.logistic_extractor)
-        simclr_model = simclr_model.to(args.device)
-        simclr_model.eval()
-    else:
-        simclr_model = None
+
+    simclr_model, _, _ = load_model(args, train_loader, reload_model=True, model_type=args.logistic_extractor)
+    simclr_model = simclr_model.to(args.device)
+    simclr_model.eval()
 
     ## Logistic Regression
     # n_classes = 10  # stl-10
