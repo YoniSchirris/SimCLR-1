@@ -92,14 +92,23 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
         if not (args.precompute_features or args.use_precomputed_features):
             if args.freeze_encoder:
                 simclr_model.eval()
-                if args.mo
                 with torch.no_grad():
-                    h, z = simclr_model.forward(x)
-                    x = h
+                    out = simclr_model.forward(x)
+     
             else:
                 simclr_model.train()
-                h, z = simclr_model.forward(x)
-                x = h
+                out = simclr_model.forward(x)
+        
+        if args.logistic_extractor=='simclr':
+            # Simclr returns (h, z)
+            h = hz[0]
+            x = h
+        else:
+            # Torchvision models return h
+            h = hz
+            x = h
+            # We name it x, since it's the input for the logistic regressors
+    
 
         if args.classification_head == 'logistic':
             output = model(x)
