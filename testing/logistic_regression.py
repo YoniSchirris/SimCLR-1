@@ -89,8 +89,7 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
         x = x.to(args.device)
         y = y.to(args.device)
 
-        if not args.precompute_features:
-            # Our loader is now loading images, not feature vectors
+        if not (args.precompute_features or args.use_precomputed_features):
             if args.freeze_encoder:
                 simclr_model.eval()
                 with torch.no_grad():
@@ -149,7 +148,7 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
         x = x.to(args.device)
         y = y.to(args.device)
 
-        if not args.precompute_features:
+        if not (args.precompute_features or args.use_precomputed_features):
             # Our loader is now loading images, not feature vectors
             simclr_model.eval()
             with torch.no_grad():
@@ -178,6 +177,44 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
 
 
     return loss_epoch, accuracy_epoch, labels, preds, patients
+
+
+def get_precomputed_dataloader(args, run_id):
+    print(f"### Loading precomputed feature vectors from run id:  {run_id} ####")
+    train_dataset = PreProcessedMSIFeatureDataset(
+        root_dir=args.path_to_msi_data, 
+        transform=None, 
+        data_fraction=1,
+        sampling_strategy='tile',
+        append_img_path_with=f'_{run_id}'
+        
+    )
+    test_dataset = PreProcessedMSIFeatureDataset(
+        root_dir=args.path_to_test_msi_data, 
+        transform=None, 
+        data_fraction=1,
+        sampling_strategy='tile',
+        append_img_path_with=f'_{run_id}'
+    )
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=args.logistic_batch_size,
+        shuffle=True,
+        drop_last=False,
+        num_workers=args.workers,
+    )
+
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=args.logistic_batch_size,
+        shuffle=False,
+        drop_last=False,
+        num_workers=args.workers,
+    )
+
+    return train_loader, test_loader
+
 
 @ex.automain
 def main(_run, _log):
@@ -266,8 +303,9 @@ def main(_run, _log):
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     criterion = torch.nn.CrossEntropyLoss()
 
-    if args.precompute_features:
+    assert not (args.precompute_features and args.use_precomputed_features), "Ambiguous config. Precompute features or use precomputed features?"
 
+    if args.precompute_features:
         if args.precompute_features_in_memory:
             print("### Creating features from pre-trained context model ###")
             (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
@@ -290,39 +328,12 @@ def main(_run, _log):
             infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}')
             
             # Overwriting previous variable names to reduce memory load
-            train_dataset = PreProcessedMSIFeatureDataset(
-                root_dir=args.path_to_msi_data, 
-                transform=None, 
-                data_fraction=1,
-                sampling_strategy='tile',
-                append_img_path_with=f'_{run_id}'
-                
-            )
-            test_dataset = PreProcessedMSIFeatureDataset(
-                root_dir=args.path_to_test_msi_data, 
-                transform=None, 
-                data_fraction=1,
-                sampling_strategy='tile',
-                append_img_path_with=f'_{run_id}'
-            )
-
-            train_loader = torch.utils.data.DataLoader(
-                train_dataset,
-                batch_size=args.logistic_batch_size,
-                shuffle=True,
-                drop_last=False,
-                num_workers=args.workers,
-            )
-
-            test_loader = torch.utils.data.DataLoader(
-                test_dataset,
-                batch_size=args.logistic_batch_size,
-                shuffle=False,
-                drop_last=False,
-                num_workers=args.workers,
-            )
+            train_loader, test_loader = get_precomputed_dataloader(args, run_id)
 
             arr_train_loader, arr_test_loader = train_loader, test_loader
+    elif args.use_precomputed_features:
+        assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
+        arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
         arr_train_loader, arr_test_loader = train_loader, test_loader
 
@@ -331,7 +342,7 @@ def main(_run, _log):
             args, arr_train_loader, simclr_model, model, criterion, optimizer
         )
         print(
-            f"Epoch [{epoch}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(train_loader)}\t Accuracy: {accuracy_epoch / len(train_loader)}"
+            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(train_loader)}\t Accuracy: {accuracy_epoch / len(train_loader)}"
         )
 
     # final testing

@@ -22,6 +22,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
             model_fp = os.path.join(
                 args.model_path, "checkpoint_{}.tar".format(args.epoch_num)
             )
+            print(f'### Loading model from: {model_fp} ###')
             model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
 
         model = model.to(args.device)
