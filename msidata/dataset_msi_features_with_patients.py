@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with=''):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with='', tensor_per_patient=False):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -53,6 +53,12 @@ class PreProcessedMSIFeatureDataset(Dataset):
         # self.labels = pd.read_csv(csv_file)
         self.balance_classes = balance_classes
         self.sampling_strategy = sampling_strategy
+        self.tensor_per_patient = tensor_per_patient
+
+        assert ((sampling_strategy=='tile') and not (tensor_per_patient)) or sampling_strategy=='patient', f"Ambiguous arguments. sampling_strategy={sampling_strategy}, tensor_per_patient={tensor_per_patient}"
+
+        self.label_file = 'data.csv' if not tensor_per_patient else 'patient_tensor_data.csv'
+
         self.device = 'cpu' # To my knowledge, data loaders generally loads everythig onto CPU. We port to GPU once passed from dataloader
         self.append_img_path_with=append_img_path_with
 
@@ -73,7 +79,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         self.labels = self._get_labels(data_fraction)
         
 
-        if sampling_strategy == 'patient':
+        if sampling_strategy == 'patient' and not self.tensor_per_patient:
             self.grouped_labels = self.labels.groupby(['patient_id'])
             self.indices_for_groups = list(self.grouped_labels.groups.values())
 
@@ -82,9 +88,9 @@ class PreProcessedMSIFeatureDataset(Dataset):
     def __len__(self, val=False):
         # full_data_len = len([name for label in self.label_classes.keys() for name in os.listdir(f'{self.root_dir}/{label}') if
         #             os.path.isfile(os.path.join(f'{self.root_dir}/{label}', name)) and name.endswith('.png')])
-        if self.sampling_strategy == 'tile':
+        if self.sampling_strategy == 'tile' or (self.sampling_strategy == 'patient' and self.tensor_per_patient):
             full_data_len = len(self.labels.index)
-        elif self.sampling_strategy == 'patient':
+        elif self.sampling_strategy == 'patient' and not self.tensor_per_patient:
             full_data_len = self.grouped_labels.ngroups
         return full_data_len
 
@@ -95,21 +101,36 @@ class PreProcessedMSIFeatureDataset(Dataset):
             one_or_two_tiles, label, patient_id, img_name = self._get_tile_item(
                 idx)
             
-        elif self.sampling_strategy == 'patient':
+        elif self.sampling_strategy == 'patient' and not self.tensor_per_patient:
             one_or_two_tiles, label, patient_id, img_name = self._get_patient_items(
                 idx)
+        
+        elif self.sampling_strategy == 'patient' and self.tensor_per_patient:
+            # Actually same type of loading as a separate tile, just from a different file!
+            one_or_two_tiles, label, patient_id, img_name = self._get_tile_item(
+                idx)
+
+            # in this case, one_or_two_tiles is actually a high-dimensional tensor, of which the size depends on the patient.
+            # also, the img_name is the path to the tensor
+
+         
+
+        else:
+            raise NotImplementedError
         # print(f'Loading tile features took {time.time()-t1:.4f} seconds')
+
+        # print(f"shape of tensor: {one_or_two_tiles.shape}, img name: {img_name}")
 
         return one_or_two_tiles, label, patient_id, img_name
 
     def _get_labels(self, data_fraction):
 
-        raw_df = pd.read_csv(self.root_dir + 'data.csv')
+        raw_df = pd.read_csv(self.root_dir + self.label_file)
 
-        if self.sampling_strategy=='tile':
+        if self.sampling_strategy=='tile' or (self.sampling_strategy=='patient' and self.tensor_per_patient):
             # Randomly sample tiles to reduce the amount of data
             subsample_df = raw_df.sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
-        elif self.sampling_strategy=='patient':
+        elif self.sampling_strategy=='patient' and not self.tensor_per_patient:
             # Randomly sample patients to reduce the amount of data
             # change to sample patients
             #TODO maybe add subsampling from each class separately?
@@ -157,7 +178,6 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
         return balanced_df
 
-        
 
     def _get_patient_items(self, idx):
         if torch.is_tensor(idx):
@@ -203,7 +223,10 @@ class PreProcessedMSIFeatureDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", f"{self.append_img_path_with}.pt") 
+        if not self.tensor_per_patient:
+            img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", f"{self.append_img_path_with}.pt") 
+        else:
+            img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1])
         vector = torch.load(img_name, map_location=self.device)
         label = self.labels.iloc[idx, 2]
         patient_id = self.labels.iloc[idx, 3]
@@ -215,28 +238,40 @@ class PreProcessedMSIFeatureDataset(Dataset):
         :param data_dir: the data directory (crc_dx, crc_kr, stad)
         :return: no return
         """
-        if not os.path.isfile(os.path.join(self.root_dir, 'data.csv')):
+
+        
+        if not os.path.isfile(os.path.join(self.root_dir, self.label_file)):
             data = []
             for label in self.label_classes.keys():
-                DATAFILENAME = f'data.csv'
+                DATAFILENAME = self.label_file
                 DIR = self.root_dir
                 SUBDIR = os.path.join(DIR, label)
 
                 for name in os.listdir(SUBDIR):
-                    if name.endswith('.png'):
+                    if self.tensor_per_patient:
+                        if name.startswith('pid') and name.endswith(f'{self.append_img_path_with}.pt'):
+                            if self.task == 'msi':
+                                patient_id = name.split('_')[1] # tensor name is pid_####_tile_vectors_extractor_$$.pt, where #### is the patient ID, $$ is the run ID that generated the tensors
+                                label_class = self.label_classes[label]
+                                data.append([f'{label}/{name}', label_class, patient_id])
+                            else:
+                                raise NotImplementedError
+                    
+                    else:
+                        if name.endswith('.png'):
 
-                        if self.task == 'msi':
-                                # 1st column of labels holds LABEL/IMAGE_NAME.png
-                                # IMAGE_NAME is blk-ABCDEGHIJKLMNOP-TCGA-AA-####-01Z-00-DX1.png
-                                # where #### is the patient ID
-                            patient_id = name.split('-')[4]
-                        elif self.task == 'cancer':
-                            patient_id = name.split('-')[1].split('.')[0]
-                        else:
-                            raise NotImplementedError
+                            if self.task == 'msi':
+                                    # 1st column of labels holds LABEL/IMAGE_NAME.png
+                                    # IMAGE_NAME is blk-ABCDEGHIJKLMNOP-TCGA-AA-####-01Z-00-DX1.png
+                                    # where #### is the patient ID
+                                patient_id = name.split('-')[4]
+                            elif self.task == 'cancer':
+                                patient_id = name.split('-')[1].split('.')[0]
+                            else:
+                                raise NotImplementedError
 
-                        label_class = self.label_classes[label]
-                        data.append([f'{label}/{name}', label_class, patient_id])
+                            label_class = self.label_classes[label]
+                            data.append([f'{label}/{name}', label_class, patient_id])
             df = pd.DataFrame(data=data, columns=['img', 'label', 'patient_id'])
             df.to_csv(DIR + DATAFILENAME)
             return
