@@ -4,19 +4,20 @@ batch_size: 32
 workers: 16
 start_epoch: 0
 epochs: 100
+
+#Data options
 dataset: "msi" # STL10
 path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 # path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 # path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 pretrain: True 
+load_patient_level_tensors: True
 
 data_pretrain_fraction: 0.1
-
 data_testing_balance_training_data: False
 data_testing_train_fraction: 0.1
 data_testing_test_fraction: 0.1
-
 data_create_feature_vectors_fraction: 0.1
 
 
@@ -38,7 +39,7 @@ temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch 
 reload_model: False
 model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
 epoch_num: 90 # set to checkpoint number
-
+ 
 # mixed-precision training
 fp16: False 
 fp16_opt_level: "O2"
@@ -56,6 +57,6 @@ use_precomputed_features: True
 use_precomputed_features_id: '1'
 freeze_encoder: True
 
-use_focal_loss: True
+use_focal_loss: False
 focal_loss_alpha: 1
 focal_loss_gamma: 2
