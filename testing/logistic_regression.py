@@ -364,9 +364,13 @@ def main(_run, _log):
 
     if args.classification_head == 'logistic':
         model = LogisticRegression(n_features, n_classes)
+    
     elif args.classification_head == 'deepmil':
         model = Attention()
+        
     model = model.to(args.device)
+
+    print(model)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     criterion = torch.nn.CrossEntropyLoss()
