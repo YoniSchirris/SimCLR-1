@@ -128,11 +128,12 @@ def main(_run, _log):
 
     run_id = args.model_path.split('/')[-1] # model path is generally e.g. logs/pretrain/51
 
-    simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
-    simclr_model = simclr_model.to(args.device)
-    simclr_model.eval()
 
     if not args.use_precomputed_features:
+        simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
+        simclr_model = simclr_model.to(args.device)
+        simclr_model.eval()
+
         save_features(simclr_model, train_loader, test_loader, args.device, append_with=f'_{run_id}')
 
     if args.use_precomputed_features:
