@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 
 from experiment import ex
-from model import load_model
+from model import load_model, save_model
 from utils import post_config_hook
 
 from modules import LogisticRegression
@@ -159,6 +159,7 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
     img_names = []
 
     model.eval()
+    simclr_model.eval()
     for step, data in enumerate(loader):
         model.zero_grad()
 
@@ -170,16 +171,10 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
         y = y.to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
-            if args.freeze_encoder:
-                simclr_model.eval()
-                with torch.no_grad():
-                    out = simclr_model.forward(x)
-     
-            else:
-                simclr_model.train()
+
+            with torch.no_grad():
                 out = simclr_model.forward(x)
-        
-        
+     
             if args.logistic_extractor=='simclr':
                 # Simclr returns (h, z)
                 h = out[0]
@@ -190,10 +185,11 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
                 x = h
                 # We name it x, since it's the input for the logistic regressors
 
-        output = model(x)
+        with torch.no_grad():
+            output = model(x)
+            loss = criterion(output, y)
 
-        loss = criterion(output, y)
-
+    
         predicted = output.argmax(1)
         acc = (predicted == y).sum().item() / y.size(0)
         accuracy_epoch += acc
@@ -319,7 +315,11 @@ def main(_run, _log):
 
     simclr_model, _, _ = load_model(args, train_loader, reload_model=True, model_type=args.logistic_extractor)
     simclr_model = simclr_model.to(args.device)
-    simclr_model.eval()
+
+    if args.freeze_encoder:
+        simclr_model.eval()
+    else:
+        simclr_model.train()
 
     ## Logistic Regression
     # n_classes = 10  # stl-10
@@ -381,22 +381,27 @@ def main(_run, _log):
             args, arr_train_loader, simclr_model, model, criterion, optimizer
         )
         print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(train_loader)}\t Accuracy: {accuracy_epoch / len(train_loader)}"
+            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(train_loader)}\t Accuracy: {accuracy_epoch / len(train_loader)}"
         )
+        if (epoch+1) % 10 == 0:
+            args.current_epoch = epoch+1
+            save_model(args, simclr_model, None, prepend='extractor_')
+            save_model(args, model, None, prepend='classifier_')
+                
 
-    # final testing
-    loss_epoch, accuracy_epoch, labels, preds, patients = test(
-        args, arr_test_loader, simclr_model, model, criterion, optimizer
-    )
+            # Test every 10 epochs
+            loss_epoch, accuracy_epoch, labels, preds, patients = test(
+                args, arr_test_loader, simclr_model, model, criterion, optimizer
+            )
 
-    final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+            final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
 
-    humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
+            humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
 
-    print(f'This is the out dir {args.out_dir}')
-    final_data.to_csv(f'{args.out_dir}/regression_output_{humane_readable_time}.csv')
+            print(f'This is the out dir {args.out_dir}')
+            final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
 
-    print(
-        f"[FINAL]\t Loss: {loss_epoch / len(test_loader)}\t Accuracy: {accuracy_epoch / len(test_loader)}"
-    )
+            print(
+                f"[TEST EPOCH {epoch+1}]\t Loss: {loss_epoch / len(test_loader)}\t Accuracy: {accuracy_epoch / len(test_loader)}"
+            )
 
