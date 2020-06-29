@@ -132,8 +132,11 @@ def main(_run, _log):
     simclr_model = simclr_model.to(args.device)
     simclr_model.eval()
 
-    save_features(simclr_model, train_loader, test_loader, args.device, append_with=f'_{run_id}')
+    if not args.use_precomputed_features:
+        save_features(simclr_model, train_loader, test_loader, args.device, append_with=f'_{run_id}')
 
+    if args.use_precomputed_features:
+        run_id = args.use_precomputed_features_id
     aggregate_patient_vectors(root_dir=args.path_to_msi_data, append_with=f'_{run_id}')
     aggregate_patient_vectors(root_dir=args.path_to_test_msi_data, append_with=f'_{run_id}')
 
