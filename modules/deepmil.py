@@ -16,36 +16,6 @@ class Attention(nn.Module):
 
         # --- transformation f #
 
-        self.feature_extractor_part1 = nn.Sequential(  # # in = 32x32x3
-
-            # In classiﬁcation, morphology of nuclei (shape, size, color, and texture) is necessary
-            # to distinguish between different types of them. Raw RGB color intensities which constitute the overall
-            # visual appearance of nuclei were, thus, chosen as input features to softmax CNN for each patch
-            nn.Conv2d(3, 36, kernel_size=5),  # Change to RGB input --> # 28x28x36
-            # filter dimensions: 5x5x3x36
-            nn.ReLU(),
-            nn.MaxPool2d(2, stride=2),  # --> # 14x14x20
-            # filter dimension: 2x2
-
-            nn.Conv2d(36, 48, kernel_size=3),  # --> # 12x12x48
-            # filter dimensions: 3x3x36x8
-            nn.ReLU(),
-            nn.MaxPool2d(2, stride=2)  # --> 6x6x48
-
-        )
-
-        self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(48 * 6 * 6, self.L),  # change to 6x6 as input image is slightl larger --> 1x512
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-
-            nn.Linear(self.L, self.L),  # -> 1x512
-            nn.ReLU(),
-            nn.Dropout(p=0.2)
-        )
-
-        # --- end of transformation f
-
         # -- What exactly is this attention? Is this gated attention? Normal attention?
         # -- This is normal attention. Gated attention adds an element-wise multiplication with a linear layer and a sigmoid non-linearity
         self.attention = nn.Sequential( # in : batch_size * L
