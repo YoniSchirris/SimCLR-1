@@ -49,8 +49,8 @@ logistic_extractor: 'simclr' # extractor to be used during testing. either 'simc
 classification_head: 'logistic' # or 'logistic' or 'deepmil'
 logistic_batch_size: 256
 logistic_epochs: 500
-clsfc_lr: 0.0005
-clsfc_reg: 10.0e-5
+deepmil_lr: 0.0005
+deepmil_reg: 10.0e-5
 precompute_features: True
 precompute_features_in_memory: True
 use_precomputed_features: True

@@ -364,15 +364,18 @@ def main(_run, _log):
 
     if args.classification_head == 'logistic':
         model = LogisticRegression(n_features, n_classes)
+        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     
     elif args.classification_head == 'deepmil':
         model = Attention()
+        optimizer = optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+
         
     model = model.to(args.device)
 
     print(model)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+    
     criterion = torch.nn.CrossEntropyLoss()
 
     assert not (args.precompute_features and args.use_precomputed_features), "Ambiguous config. Precompute features or use precomputed features?"
