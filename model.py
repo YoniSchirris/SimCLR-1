@@ -68,8 +68,11 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
     return model, optimizer, scheduler
 
 
-def save_model(args, model, optimizer):
-    out = os.path.join(args.out_dir, "checkpoint_{}.tar".format(args.current_epoch))
+def save_model(args, model, optimizer, prepend=''):
+
+    out = os.path.join(args.out_dir, "{}checkpoint_{}.tar".format(prepend, args.current_epoch))
+
+    print(f'Saving model to {out}')
 
     # To save a DataParallel model generically, save the model.module.state_dict().
     # This way, you have the flexibility to load the model any way you want to any device you want.
