@@ -129,11 +129,12 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
             loss_epoch += loss.item()
 
         elif args.classification_head == 'deepmil':
+
             Y_prob, Y_hat, A = model.forward(x)
-            loss, _ = model.calculate_objective(data, bag_label, Y_prob, A)
-            train_loss += loss.data[0]
+            loss, _ = model.calculate_objective(x, y, Y_prob, A)
+            train_loss = loss.item()
             loss_epoch += train_loss
-            error, _ = model.calculate_classification_error(data, bag_label, Y_hat)
+            error, _ = model.calculate_classification_error(y, Y_hat)
             acc = 1. - error
         
         accuracy_epoch += acc
@@ -158,8 +159,9 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
     patients = []
     img_names = []
 
+
     model.eval()
-    simclr_model.eval()
+
     for step, data in enumerate(loader):
         model.zero_grad()
 
@@ -171,6 +173,7 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
         y = y.to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
+            simclr_model.eval()
 
             with torch.no_grad():
                 out = simclr_model.forward(x)
@@ -185,19 +188,38 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
                 x = h
                 # We name it x, since it's the input for the logistic regressors
 
-        with torch.no_grad():
-            output = model(x)
-            loss = criterion(output, y)
+        if args.classification_head == 'logistic':
+            with torch.no_grad():
+                output = model(x)
+                if not args.use_focal_loss:
+                    loss = criterion(output, y)
+                else:
+                    # use focal loss
+                    focal = FocalLoss(args.focal_loss_alpha, args.focal_loss_gamma)
+                    loss = torch.nn.functional.cross_entropy(output,y, reduction='none')
+                    loss = focal(loss)
 
-    
-        predicted = output.argmax(1)
-        acc = (predicted == y).sum().item() / y.size(0)
+                predicted = output.argmax(1)
+                acc = (predicted == y).sum().item() / y.size(0)
+                loss_epoch += loss.item()
+                preds += predicted.cpu().tolist()
+
+        elif args.classification_head == 'deepmil':
+            with torch.no_grad():
+
+                Y_prob, Y_hat, A = model.forward(x)
+                loss, _ = model.calculate_objective(x, y, Y_prob, A)
+                train_loss = loss.item()
+                loss_epoch += train_loss
+                error, _ = model.calculate_classification_error(y, Y_hat)
+                acc = 1. - error        
+                binary_Y_prob = Y_prob.softmax(dim=1)[0][1]
+                preds.append(binary_Y_prob.item())       
+
         accuracy_epoch += acc
 
-        loss_epoch += loss.item()
-
         labels += y.cpu().tolist()
-        preds += predicted.cpu().tolist()
+        
 
         if isinstance(patient, torch.Tensor):
             # Happens when using dataset_msi, as we return a hash, which is an integer, which is made into a tensor
@@ -212,20 +234,30 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
 
 def get_precomputed_dataloader(args, run_id):
     print(f"### Loading precomputed feature vectors from run id:  {run_id} ####")
+
+    assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
+
+    if args.load_patient_level_tensors:
+        sampling_strategy='patient'
+    else:
+        sampling_strategy='tile'
+
     train_dataset = PreProcessedMSIFeatureDataset(
         root_dir=args.path_to_msi_data, 
         transform=None, 
         data_fraction=1,
-        sampling_strategy='tile',
-        append_img_path_with=f'_{run_id}'
+        sampling_strategy=sampling_strategy,
+        append_img_path_with=f'_{run_id}',
+        tensor_per_patient=args.load_patient_level_tensors
         
     )
     test_dataset = PreProcessedMSIFeatureDataset(
         root_dir=args.path_to_test_msi_data, 
         transform=None, 
         data_fraction=1,
-        sampling_strategy='tile',
-        append_img_path_with=f'_{run_id}'
+        sampling_strategy=sampling_strategy,
+        append_img_path_with=f'_{run_id}',
+        tensor_per_patient=args.load_patient_level_tensors
     )
 
     train_loader = torch.utils.data.DataLoader(
@@ -385,7 +417,8 @@ def main(_run, _log):
         )
         if (epoch+1) % 10 == 0:
             args.current_epoch = epoch+1
-            save_model(args, simclr_model, None, prepend='extractor_')
+            if simclr_model:
+                save_model(args, simclr_model, None, prepend='extractor_')
             save_model(args, model, None, prepend='classifier_')
                 
 
