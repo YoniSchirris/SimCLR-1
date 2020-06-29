@@ -73,7 +73,8 @@ class Attention(nn.Module):
         A = torch.transpose(A, 1, 0)  # KxN
         A = F.softmax(A, dim=1)  # softmax over N
 
-        A.register_hook(self._set_grad(A)) # save grad specifically here
+        if self.train and H.requires_grad:
+            A.register_hook(self._set_grad(A)) # save grad specifically here. only when in train mode and when grad's computed
 
         M = torch.mm(A, H)  # KxL
 
