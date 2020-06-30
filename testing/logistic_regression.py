@@ -210,7 +210,7 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
             with torch.no_grad():
 
                 Y_prob, Y_hat, A = model.forward(x)
-                loss, _ = model.calculate_objective(x, y, Y_prob, A)
+                loss, _ = criterion(Y_prob, y)
                 train_loss = loss.item()
                 loss_epoch += train_loss
                 error, _ = model.calculate_classification_error(y, Y_hat)
