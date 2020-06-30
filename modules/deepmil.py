@@ -65,26 +65,3 @@ class Attention(nn.Module):
         # print(Y_hat)
         error = 1. - Y_hat.eq(Y).cpu().float().mean().item()
         return error, Y_hat
-
-    def calculate_objective(self, X, Y, Y_prob, A):
-        """
-        Unused.
-        """
-        Y = Y.float()
-
-        # X = X.view(X.shape[0], X.shape[3], X.shape[1], X.shape[2]) # 1 x num_tiles x rgb x width x height
-        # Y_prob, _, A = self.forward(X)
-        Y_prob = torch.clamp(Y_prob, min=1e-5, max=1. - 1e-5).squeeze(0)    # Y_prob is 1x2, we want it to be of size 2 for later dot product
-
-        # Y_prob is now 2-dimensional
-        # Y is actually 1-dimensional
-
-        Y_onehot = torch.zeros(2)
-
-        Y_onehot[int(Y.item())] = 1 # Y is either 0 or 1, but is wrapped inside a tensor and is a float
-
-        Y_onehot.to(device=Y_prob.device.type)  # set Y_onehot to same device as Y_prob
-
-        neg_log_likelihood = -1 * Y_onehot.dot(torch.log(Y_prob)) # 1x1
-
-        return neg_log_likelihood, A
