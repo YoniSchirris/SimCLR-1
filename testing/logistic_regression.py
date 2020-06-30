@@ -445,6 +445,6 @@ def main(_run, _log):
             final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
 
             print(
-                f"[TEST EPOCH {epoch+1}]\t Loss: {loss_epoch / len(test_loader)}\t Accuracy: {accuracy_epoch / len(test_loader)}"
+                f"[TEST EPOCH {epoch+1}]\t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
             )
 
