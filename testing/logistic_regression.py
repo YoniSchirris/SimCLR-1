@@ -131,7 +131,9 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
         elif args.classification_head == 'deepmil':
 
             Y_prob, Y_hat, A = model.forward(x)
-            loss, _ = model.calculate_objective(x, y, Y_prob, A)
+            
+            loss = criterion(Y_prob, y)
+
             train_loss = loss.item()
             loss_epoch += train_loss
             error, _ = model.calculate_classification_error(y, Y_hat)
@@ -326,26 +328,10 @@ def main(_run, _log):
     else:
         raise NotImplementedError
 
-    drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.logistic_batch_size,
-        shuffle=True,
-        drop_last=drop_last,
-        num_workers=args.workers,
-    )
-
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size=args.logistic_batch_size,
-        shuffle=False,
-        drop_last=drop_last,
-        num_workers=args.workers,
-    )
 
 
-    simclr_model, _, _ = load_model(args, train_loader, reload_model=True, model_type=args.logistic_extractor)
+
+    simclr_model, _, _ = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
     simclr_model = simclr_model.to(args.device)
 
     if args.freeze_encoder:
@@ -381,6 +367,23 @@ def main(_run, _log):
     assert not (args.precompute_features and args.use_precomputed_features), "Ambiguous config. Precompute features or use precomputed features?"
 
     if args.precompute_features:
+        drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
+
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.logistic_batch_size,
+            shuffle=True,
+            drop_last=drop_last,
+            num_workers=args.workers,
+        )
+
+        test_loader = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=args.logistic_batch_size,
+            shuffle=False,
+            drop_last=drop_last,
+            num_workers=args.workers,
+        )        
         if args.precompute_features_in_memory:
             print("### Creating features from pre-trained context model ###")
             (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
@@ -406,21 +409,21 @@ def main(_run, _log):
 
             arr_train_loader, arr_test_loader = train_loader, test_loader
     elif args.use_precomputed_features:
+        
         assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
-
         print(f"Removing SIMCLR model from memory, as we use precomputed features..")
         del simclr_model
         simclr_model = None
         arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
-        arr_train_loader, arr_test_loader = train_loader, test_loader
+        raise NotImplementedError
 
     for epoch in range(args.logistic_epochs):
         loss_epoch, accuracy_epoch = train(
             args, arr_train_loader, simclr_model, model, criterion, optimizer
         )
         print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(train_loader)}\t Accuracy: {accuracy_epoch / len(train_loader)}"
+            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(arr_train_loader)}\t Accuracy: {accuracy_epoch / len(arr_train_loader)}"
         )
         if (epoch+1) % 10 == 0:
             args.current_epoch = epoch+1
