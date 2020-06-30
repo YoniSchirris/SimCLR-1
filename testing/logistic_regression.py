@@ -367,8 +367,8 @@ def main(_run, _log):
         optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
     
     elif args.classification_head == 'deepmil':
-        model = Attention()
-        optimizer = optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+        model = Attention(hidden_dim=n_features)
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
 
         
     model = model.to(args.device)
