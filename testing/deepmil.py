@@ -154,10 +154,8 @@ def test(args, loader, model, criterion, optimizer):
             Y_out, Y_hat, A = model.forward(x)
             loss = criterion(input=Y_out, target=Y.unsqueeze(0))      # use toch crossentropy loss instead of self-engineered loss
 
-            # loss, _ = model.calculate_objective(data, Y, Y_prob, A)
             train_loss = loss.item()
             
-            # Y_hat = Y_hat.argmax(1) #TODO check this
             error, _ = model.calculate_classification_error(Y, Y_hat)
             acc = 1. - error
 
