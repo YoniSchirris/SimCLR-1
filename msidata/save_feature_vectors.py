@@ -33,15 +33,8 @@ import datetime
 
 
 
-def infer_and_save(loader, context_model, device, append_with='', model_type=None, cont=False):
+def infer_and_save(loader, context_model, device, append_with='', model_type=None):
     for step, (x, y, patient, img_names) in enumerate(loader):
-        saved_tensor_name = img_name.replace('.png', f'{append_with}.pt')
-
-        if cont:
-            # If we say we continue from a specific run_id, check if this file actually already exists
-            if os.path.isfile(saved_tensor_name):
-                continue
-
         x = x.to(device)
         # get encoding
         if not model_type or model_type=='simclr':
@@ -60,7 +53,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
 
         for i, img_name in enumerate(img_names):
             feature_vec = h[i]
-            torch.save(feature_vec, saved_tensor_name)
+            torch.save(feature_vec, img_name.replace('.png', f'{append_with}.pt'))
 
         if step % 20 == 0:
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
@@ -87,9 +80,9 @@ def aggregate_patient_vectors(root_dir, append_with=''):
         print(f'Saving {filename}')
 
 
-def save_features(context_model, train_loader, test_loader, device, append_with='', cont=False):
-    infer_and_save(train_loader, context_model, device, append_with, cont=cont)
-    infer_and_save(test_loader, context_model, device, append_with, cont=cont)
+def save_features(context_model, train_loader, test_loader, device, append_with=''):
+    infer_and_save(train_loader, context_model, device, append_with)
+    infer_and_save(test_loader, context_model, device, append_with)
     
 
  
@@ -137,17 +130,11 @@ def main(_run, _log):
 
 
     if not args.use_precomputed_features:
-        cont=False
         simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
         simclr_model = simclr_model.to(args.device)
         simclr_model.eval()
 
-        if args.continue_with_id:
-            print(f'Continuing saving features from run id = {args.continue_with_id}')
-            run_id = args.continue_with_id
-            cont=True
-            
-        save_features(simclr_model, train_loader, test_loader, args.device, append_with=f'_{run_id}', cont=cont)
+        save_features(simclr_model, train_loader, test_loader, args.device, append_with=f'_{run_id}')
 
     if args.use_precomputed_features:
         run_id = args.use_precomputed_features_id

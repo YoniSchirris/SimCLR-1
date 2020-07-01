@@ -397,18 +397,12 @@ def main(_run, _log):
             print("### Creating and saving features from pre-trained context model ###")
             assert args.data_testing_train_fraction == 1 and args.data_testing_test_fraction == 1, "Bugs might occur when we do not save feature vectors for all data due to sampling issues"
 
-
-            if args.continue_with_id:
-                run_id = args.continue_with_id
-                cont = True
-            else:
-                run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
-                cont = False
+            run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
 
             # This overwrites any other saved feature vectors we have. That means that we can NOT run several scripts at the same time..
 
-            infer_and_save(loader=train_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor, cont=cont)
-            infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor, cont=cont)
+            infer_and_save(loader=train_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
+            infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             
             # Overwriting previous variable names to reduce memory load
             train_loader, test_loader = get_precomputed_dataloader(args, run_id)

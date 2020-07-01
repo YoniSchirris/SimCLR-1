@@ -59,9 +59,6 @@ use_precomputed_features: True
 use_precomputed_features_id: '1'
 freeze_encoder: True
 
-# saving features options
-continue_with_id: '' # set ID to continue saving features from. Only used if "use_precomputed_features" is False
-
 
 use_focal_loss: False
 focal_loss_alpha: 1
