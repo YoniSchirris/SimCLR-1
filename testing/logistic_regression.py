@@ -416,7 +416,7 @@ def main(_run, _log):
         simclr_model = None
         arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
-        raise NotImplementedError
+        arr_train_loader, arr_test_loader = train_loader, test_loader
 
     for epoch in range(args.logistic_epochs):
         loss_epoch, accuracy_epoch = train(
