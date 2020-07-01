@@ -104,10 +104,22 @@ class PreProcessedMSIDataset(Dataset):
 
                 for name in os.listdir(SUBDIR):
                     if name.endswith('.png'):
+                        if self.task == 'msi':
+                                # 1st column of labels holds LABEL/IMAGE_NAME.png
+                                # IMAGE_NAME is blk-ABCDEGHIJKLMNOP-TCGA-AA-####-01Z-00-DX1.png
+                                # where #### is the patient ID
+                            patient_id = name.split('-')[4]
+                        elif self.task == 'cancer':
+                            patient_id = name.split('-')[1].split('.')[0]
+                        else:
+                            raise NotImplementedError
                         label_class = self.label_classes[label]
-                        data.append([f'{label}/{name}', label_class])
-            df = pd.DataFrame(data=data, columns=['img', 'label'])
+                        data.append([f'{label}/{name}', label_class, patient_id])
+            df = pd.DataFrame(data=data, columns=['img', 'label', 'patient_id'])
             df.to_csv(DIR + DATAFILENAME)
             return
         else:
+            df = pd.read_csv(os.path.join(self.root_dir, self.label_file))
+            cols = df.columns
+            assert 'img' in cols and 'label' in cols and 'patient_id' in cols, f"data.csv seems to be corrupt. Columns are {cols}. Might have to remove the data.csv and rerun."
             return
