@@ -119,7 +119,7 @@ class PreProcessedMSIDataset(Dataset):
             df.to_csv(DIR + DATAFILENAME)
             return
         else:
-            df = pd.read_csv(os.path.join(self.root_dir, self.label_file))
+            df = pd.read_csv(os.path.join(self.root_dir, 'data.csv'))
             cols = df.columns
             assert 'img' in cols and 'label' in cols and 'patient_id' in cols, f"data.csv seems to be corrupt. Columns are {cols}. Might have to remove the data.csv and rerun."
             return
