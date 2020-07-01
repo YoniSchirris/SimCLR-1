@@ -30,6 +30,8 @@ projection_dim: 128 # "[...] to project the representation to a 128-dimensional 
 feature_learning: "unsupervised"
 projection_hidden: 128      # only used for supervised feature learning
 
+
+
 # loss options
 optimizer: "Adam" # or LARS (experimental)
 weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
@@ -56,6 +58,10 @@ precompute_features_in_memory: True
 use_precomputed_features: True
 use_precomputed_features_id: '1'
 freeze_encoder: True
+
+# saving features options
+continue_with_id: '' # set ID to continue saving features from. Only used if "use_precomputed_features" is False
+
 
 use_focal_loss: False
 focal_loss_alpha: 1
