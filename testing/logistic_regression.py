@@ -364,9 +364,14 @@ def main(_run, _log):
     
     criterion = torch.nn.CrossEntropyLoss()
 
-    assert not (args.precompute_features and args.use_precomputed_features), "Ambiguous config. Precompute features or use precomputed features?"
 
-    if args.precompute_features:
+    if args.precompute_features or not args.use_precomputed_features:
+        # If we precompute features, we need an image loader
+        # If we use precomputed features, we don't need an image loader
+        # If we don't use any preocomputed features, which happens if we finetune, we do want an image loader 
+
+        assert not (args.precompute_features and args.use_precomputed_features), "Ambiguous config. Precompute features or use precomputed features?"
+
         drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
 
         train_loader = torch.utils.data.DataLoader(
@@ -383,7 +388,10 @@ def main(_run, _log):
             shuffle=False,
             drop_last=drop_last,
             num_workers=args.workers,
-        )        
+        )         
+
+    if args.precompute_features:
+   
         if args.precompute_features_in_memory:
             print("### Creating features from pre-trained context model ###")
             (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
