@@ -6,9 +6,10 @@ start_epoch: 0
 epochs: 100
 
 #Data options
-dataset: "msi" # STL10
+dataset: "msi-kather" # STL10
 path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+root_dir_for_tcga_tiles: "/home/yonis/full-kather-msi-tiles/tiled_data_large/"
 # path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 # path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 pretrain: True 

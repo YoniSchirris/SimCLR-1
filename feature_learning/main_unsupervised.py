@@ -20,6 +20,7 @@ from modules.sync_batchnorm import convert_model
 from modules.transformations import TransformsSimCLR
 from utils import post_config_hook
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
+from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 
 #### pass configuration
 from experiment import ex
@@ -28,6 +29,8 @@ from experiment import ex
 def train(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
+        print("Loading successfully...")
+        print(x_i.shape)
 
         optimizer.zero_grad()
         x_i = x_i.to(args.device)
@@ -76,10 +79,13 @@ def main(_run, _log):
         train_dataset = torchvision.datasets.CIFAR10(
             root, download=True, transform=TransformsSimCLR(size=32)
         )
-    elif args.dataset == 'msi':
-        # train_dataset = custom_histo_dataset
-        #TODO using a fraction of the data at this moment
+    elif args.dataset == 'msi-kather':
         train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=args.data_pretrain_fraction)
+
+    elif args.dataset == 'msi-tcga':    
+        assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
+        assert (args.root_dir_for_tcga_tiles), "Please provide the root dir for the tcga tiles"
+        train_dataset = dataset_tcga(csv_file=args.path_to_msi_data, root_dir=args.root_dir_for_tcga_tiles, transform=TransformsSimCLR(size=224))            
     else:
         raise NotImplementedError
 
