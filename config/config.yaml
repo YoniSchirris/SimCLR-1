@@ -7,18 +7,20 @@ epochs: 100
 
 #Data options
 dataset: "msi-kather" # STL10
-path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
-path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+#path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+#path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 root_dir_for_tcga_tiles: "/home/yonis/full-kather-msi-tiles/tiled_data_large/"
-# path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
-# path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+
 pretrain: True 
 load_patient_level_tensors: True
 
 data_pretrain_fraction: 0.1
 data_testing_balance_training_data: False
-data_testing_train_fraction: 0.1
-data_testing_test_fraction: 0.1
+data_testing_train_fraction: 0.6
+data_testing_test_fraction: 0.6
+
 data_create_feature_vectors_fraction: 0.1
 
 
@@ -48,7 +50,7 @@ fp16: False
 fp16_opt_level: "O2"
 
 # testing options
-logistic_extractor: 'simclr' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
+logistic_extractor: 'imagenet-resnet50' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
 classification_head: 'logistic' # or 'logistic' or 'deepmil'
 logistic_batch_size: 256
 logistic_epochs: 500
