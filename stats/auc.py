@@ -7,7 +7,7 @@ import numpy as np
 from sklearn import metrics
 
 
-filepath = ''
+filepath = '../logs/pretrain/105/regression_output_epoch_40_2020-07-01-15-17-44.csv'
 
 df = pd.read_csv(filepath)
 
@@ -36,10 +36,11 @@ balanced_labels = dfgroup_balanced['labels'].values
 balanced_preds = dfgroup_balanced['preds'].values
 
 
-
+tn, fp, fn, tp = metrics.confusion_matrix(labels, binary_preds).ravel()
+print(f'TN: {tn}, FP: {fp}, FN: {fn}, TP: {tp}')
 print(f'Unbalanced ROC AUC  for {filepath} is {metrics.roc_auc_score(y_true=labels, y_score=preds)}')
 print(f'Balanced AUC for {filepath} is {metrics.roc_auc_score(y_true=balanced_labels, y_score=balanced_preds)}')
-print(f"Unbalanced PR AUC for {filepath} is {metric.average_precision_score(labels, preds)}")
+print(f"Unbalanced PR AUC for {filepath} is {metrics.average_precision_score(labels, preds)}")
 print(f'F1 score (balanced) for {filepath} is {metrics.f1_score(y_true=labels, y_pred=binary_preds)}')
 
 print(f"Unbalanced PR AUC for {filepath} is {metrics.average_precision_score(labels, preds)}")
