@@ -59,6 +59,13 @@ for dir in dirs:
 
         tn, fp, fn, tp = metrics.confusion_matrix(labels, binary_preds).ravel()
 
+        rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+        brocauc=metrics.roc_auc_score(y_true=balanced_labels, y_score=balanced_preds)
+        prauc=metrics.average_precision_score(labels, preds)
+        bprauc=metrics.average_precision_score(balanced_labels, balanced_preds)
+        f1=metrics.f1_score(y_true=labels, y_pred=binary_preds)
+        
+
         data['filepath'].append(filepath)
         data['rocauc'].append(rocauc)
         data['brocauc'].append(brocauc)
