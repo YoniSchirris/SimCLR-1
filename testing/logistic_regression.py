@@ -21,6 +21,8 @@ import pandas as pd
 import time
 import datetime
 
+from sklearn import metrics
+
 
 
 def inference(args, loader, context_model, device):
@@ -433,14 +435,14 @@ def main(_run, _log):
         print(
             f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(arr_train_loader)}\t Accuracy: {accuracy_epoch / len(arr_train_loader)}"
         )
-        if (epoch+1) % 10 == 0:
+        if (epoch+1) % args.save_logistic_model_each_epochs == 0:
             args.current_epoch = epoch+1
             if simclr_model:
                 save_model(args, simclr_model, None, prepend='extractor_')
             save_model(args, model, None, prepend='classifier_')
                 
 
-            # Test every 10 epochs
+            # Test every x epochs
             loss_epoch, accuracy_epoch, labels, preds, patients = test(
                 args, arr_test_loader, simclr_model, model, criterion, optimizer
             )
@@ -452,7 +454,13 @@ def main(_run, _log):
             print(f'This is the out dir {args.out_dir}')
             final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
 
+            dfgroup = final_data.groupby(['patient']).mean()
+            labels = dfgroup['labels'].values
+            preds = dfgroup['preds'].values
+            rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+
+
             print(
-                f"[TEST EPOCH {epoch+1}]\t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
+                f"[TEST EPOCH {epoch+1}]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
             )
 
