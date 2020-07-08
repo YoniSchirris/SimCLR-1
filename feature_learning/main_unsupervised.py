@@ -103,7 +103,12 @@ def main(_run, _log):
     args = argparse.Namespace(**_run.config)
     args = post_config_hook(args, _run)
 
-    args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        print("--- USING GPU ---")
+        args.device=torch.device("cuda:0")
+    else:
+        print("--- USING CPU ----")
+        args.device=torch.device('cpu')
     args.n_gpu = torch.cuda.device_count()
 
     root = "./datasets"
@@ -150,7 +155,7 @@ def main(_run, _log):
         model, optimizer, scheduler = load_model(args, train_loader, reload_model=args.reload_model, model_type=args.unsupervised_method)
         criterion = NT_Xent(args.batch_size, args.temperature, args.device)
 
-    print(f"Using {args.n_gpu}'s")
+    print(f"Using {args.n_gpu} GPUs")
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
         model = convert_model(model)
