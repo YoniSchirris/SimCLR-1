@@ -32,6 +32,7 @@ projection_dim: 128 # "[...] to project the representation to a 128-dimensional 
 # supervised or unsupservised learning?
 feature_learning: "unsupervised"
 unsupervised_method: "byol" # "simclr" or "byol"
+save_each_epochs: 1
 projection_hidden: 128      # only used for supervised feature learning
 
 

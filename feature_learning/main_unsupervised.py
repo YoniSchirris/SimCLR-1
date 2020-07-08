@@ -173,7 +173,7 @@ def main(_run, _log):
         if scheduler:
             scheduler.step()
 
-        if epoch % 10 == 0:
+        if epoch % args.save_each_epochs == 0:
             if args.unsupervised_method == "simclr":
                 # Save entire model
                 save_model(args, model, optimizer)
