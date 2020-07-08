@@ -1,10 +1,11 @@
 import os
 import torch
 import torchvision.models as models
-from modules import SimCLR, LARS
+from modules import SimCLR, LARS, BYOL
 
 
 def load_model(args, loader, reload_model=False, model_type='simclr'):
+    #TODO Loader is not used
 
     possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenet-v1_x1_0': models.shufflenet_v2_x1_0}
 
@@ -27,9 +28,22 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
 
         model = model.to(args.device)
 
-    elif model_type in possible_non_simclr_models:
+    elif 'imagenet' in model_type:
+        assert (model_type in possible_non_simclr_models), f"{model_type} is not supported. Please choose a model from {possible_non_simclr_models.keys()}"
         model = possible_non_simclr_models[model_type](pretrained=True)
         model.fc = torch.nn.Identity()
+    elif model_type == 'byol':
+        #TODO make more flexible
+        #TODO Add several resnets
+        #TODO Add possibility of loading previous models
+        backbone = models.resnet18(pretrained=False)
+        model = BYOL(
+            net=backbone,
+            image_size = 225,
+            hidden_layer='avgpool'
+        )
+    else:
+        raise NotImplementedError
 
     scheduler = None
     if args.optimizer == "Adam":
@@ -65,7 +79,10 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
             model, optimizer, opt_level=args.fp16_opt_level
         )
 
-    return model, optimizer, scheduler
+    if model_type=='byol':
+        return model, optimizer, scheduler, backbone
+    else:
+        return model, optimizer, scheduler
 
 
 def save_model(args, model, optimizer, prepend=''):

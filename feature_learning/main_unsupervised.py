@@ -2,6 +2,7 @@ import os
 import torch
 import torchvision
 import argparse
+import time
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -25,12 +26,11 @@ from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 #### pass configuration
 from experiment import ex
 
-
-def train(args, train_loader, model, criterion, optimizer, writer):
+def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         print("Loading successfully...")
-        print(x_i.shape)
+        print(x_i.shape)    
 
         optimizer.zero_grad()
         x_i = x_i.to(args.device)
@@ -51,11 +51,50 @@ def train(args, train_loader, model, criterion, optimizer, writer):
         optimizer.step()
 
         if step % 50 == 0:
-            print(f"Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
+            print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
         loss_epoch += loss.item()
         args.global_step += 1
+    
+    return loss_epoch
+
+def train_byol(args, train_loader, model, criterion, optimizer, writer):
+    loss_epoch = 0
+    print("Training BYOL!")
+    for step, (x, _, _, _) in enumerate(train_loader):
+        # augmentations are done within the model
+        # loss is computed within the model
+        loss = model(x)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        model.update_moving_average()
+
+        loss_epoch += loss.item()
+
+        optimizer.step()
+
+        if step % 50 == 0:
+            print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
+
+        writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
+
+        args.global_step += 1
+
+    return loss_epoch
+
+def train(args, train_loader, model, criterion, optimizer, writer):
+
+    if args.unsupervised_method == 'simclr':
+        train_method = train_simclr
+    elif args.unsupervised_method == 'byol':
+        train_method = train_byol
+    else:
+        raise NotImplementedError
+
+    loss_epoch = train_method(args, train_loader, model, criterion, optimizer, writer)
+    
     return loss_epoch
 
 
@@ -71,6 +110,9 @@ def main(_run, _log):
 
     train_sampler = None
 
+    transform = TransformsSimCLR(size=224) if args.unsupervised_method == 'simclr' else None
+    # When transform = None, the dataloader will retrieve only a single image that is not transformed, as this will be done inside BYOL
+
     if args.dataset == "STL10":
         train_dataset = torchvision.datasets.STL10(
             root, split="unlabeled", download=True, transform=TransformsSimCLR(size=96)
@@ -80,12 +122,12 @@ def main(_run, _log):
             root, download=True, transform=TransformsSimCLR(size=32)
         )
     elif args.dataset == 'msi-kather':
-        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=TransformsSimCLR(size=224), data_fraction=args.data_pretrain_fraction)
+        train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=transform, data_fraction=args.data_pretrain_fraction)
 
     elif args.dataset == 'msi-tcga':    
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
         assert (args.root_dir_for_tcga_tiles), "Please provide the root dir for the tcga tiles"
-        train_dataset = dataset_tcga(csv_file=args.path_to_msi_data, root_dir=args.root_dir_for_tcga_tiles, transform=TransformsSimCLR(size=224))            
+        train_dataset = dataset_tcga(csv_file=args.path_to_msi_data, root_dir=args.root_dir_for_tcga_tiles, transform=transform)            
     else:
         raise NotImplementedError
 
@@ -98,7 +140,15 @@ def main(_run, _log):
         sampler=train_sampler,
     )
 
-    model, optimizer, scheduler = load_model(args, train_loader, reload_model=args.reload_model)
+    if args.unsupervised_method=='byol':
+        # Backbone is a reference to the network being used and updated. We should save the state of this network
+        model, optimizer, scheduler, backbone = load_model(args, train_loader, reload_model=args.reload_model, model_type=args.unsupervised_method)
+        
+        # Criterion is defined within BYOL
+        criterion = None
+    else:
+        model, optimizer, scheduler = load_model(args, train_loader, reload_model=args.reload_model, model_type=args.unsupervised_method)
+        criterion = NT_Xent(args.batch_size, args.temperature, args.device)
 
     print(f"Using {args.n_gpu}'s")
     if args.n_gpu > 1:
@@ -112,8 +162,7 @@ def main(_run, _log):
     tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
     os.makedirs(tb_dir)
     writer = SummaryWriter(log_dir=tb_dir)
-
-    criterion = NT_Xent(args.batch_size, args.temperature, args.device)
+    
 
     args.global_step = 0
     args.current_epoch = 0
@@ -125,7 +174,13 @@ def main(_run, _log):
             scheduler.step()
 
         if epoch % 10 == 0:
-            save_model(args, model, optimizer)
+            if args.unsupervised_method == "simclr":
+                # Save entire model
+                save_model(args, model, optimizer)
+            elif args.unsupervised_method == "byol":
+                # Save only the resnet backbone
+                save_model(args, backbone, optimizer)
+
 
         writer.add_scalar("Loss/train", loss_epoch / len(train_loader), epoch)
         writer.add_scalar("Misc/learning_rate", lr, epoch)
