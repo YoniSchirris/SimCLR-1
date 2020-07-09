@@ -156,11 +156,14 @@ def main(_run, _log):
         criterion = NT_Xent(args.batch_size, args.temperature, args.device)
 
     print(f"Using {args.n_gpu} GPUs")
-    if args.n_gpu > 1:
+    if 'use_multi_gpu' not in vars(args).keys():
+        args.use_multi_gpu=False
+    if args.n_gpu > 1 and args.use_multi_gpu:
         model = torch.nn.DataParallel(model)
         model = convert_model(model)
-        model = model.to(args.device)
         #TODO Check the batch size.. are we only training with 32 total so 8 per GPU? That's veeeery few.
+
+    model = model.to(args.device)
 
     print(model)
 
