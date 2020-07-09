@@ -65,6 +65,9 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer):
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         # augmentations are done within the model
         # loss is computed within the model
+        x_i = x_i.to(args.device)
+        x_j = x_j.to(args.device)
+
         loss = model(image_one=x_i, image_two=x_j)
         optimizer.zero_grad()
         loss.backward()
