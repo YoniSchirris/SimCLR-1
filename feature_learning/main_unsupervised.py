@@ -29,8 +29,6 @@ from experiment import ex
 def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
-        print("Loading successfully...")
-        print(x_i.shape)    
 
         optimizer.zero_grad()
         x_i = x_i.to(args.device)
