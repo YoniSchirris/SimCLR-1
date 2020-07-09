@@ -3,6 +3,7 @@ import torch
 import torchvision
 import argparse
 import time
+import numpy as np
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -28,17 +29,32 @@ from experiment import ex
 
 def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
+    t0=time.time()
+
+    t_port=[1]
+    t_model=[1]
+    t_criterion=[1]
+    t_optimize=[1]
+    t_data=[1]
+
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
+        t1=time.time()
 
         optimizer.zero_grad()
         x_i = x_i.to(args.device)
         x_j = x_j.to(args.device)
 
+        t2=time.time()
+
         # positive pair, with encoding
         h_i, z_i = model(x_i)
         h_j, z_j = model(x_j)
 
+        t3=time.time()
+
         loss = criterion(z_i, z_j)
+
+        t4=time.time()
 
         if apex and args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -48,12 +64,25 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
 
         optimizer.step()
 
+        t5=time.time()
+
         if step % 50 == 0:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
+            total_time = np.sum(t_port + t_model + t_criterion + t_optimize + t_data)
+            print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t criterion: {np.sum(t_criterion)/total_time} \t optimize: {np.sum(t_optimize)/total_time} \t data: {np.sum(t_data)/total_time}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
         loss_epoch += loss.item()
         args.global_step += 1
+
+        
+        t_port.append(t2-t1)
+        t_model.append(t3-t2)
+        t_criterion.append(t4-t3)
+        t_optimize.append(t5-t4)
+        t_data.append(t1-t0)
+
+        t0=time.time()
     
     return loss_epoch
 
