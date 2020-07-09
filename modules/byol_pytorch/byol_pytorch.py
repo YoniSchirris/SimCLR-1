@@ -5,9 +5,7 @@ from functools import wraps
 import torch
 from torch import nn
 import torch.nn.functional as F
-
-from kornia import augmentation as augs
-from kornia import filters, color
+from modules.transformations import TransformsSimCLR
 
 # helper functions
 
@@ -150,14 +148,7 @@ class BYOL(nn.Module):
 
         # default SimCLR augmentation
 
-        DEFAULT_AUG = nn.Sequential(
-            RandomApply(augs.ColorJitter(0.8, 0.8, 0.8, 0.2), p=0.8),
-            augs.RandomGrayscale(p=0.2),
-            augs.RandomHorizontalFlip(),
-            RandomApply(filters.GaussianBlur2d((3, 3), (1.5, 1.5)), p=0.1),
-            augs.RandomResizedCrop((image_size, image_size)),
-            color.Normalize(mean=torch.tensor([0.485, 0.456, 0.406]), std=torch.tensor([0.229, 0.224, 0.225]))
-        )
+        DEFAULT_AUG = TransformsSimCLR(size=224)
 
         self.augment = default(augment_fn, DEFAULT_AUG)
 
@@ -168,7 +159,7 @@ class BYOL(nn.Module):
         self.online_predictor = MLP(projection_size, projection_size, projection_hidden_size)
 
         # send a mock image tensor to instantiate singleton parameters
-        self.forward(torch.randn(2, 3, image_size, image_size))
+        self.forward(torch.randn(2, 3, image_size, image_size), torch.randn(2, 3, image_size, image_size))
 
     @singleton('target_encoder')
     def _get_target_encoder(self):
@@ -183,8 +174,8 @@ class BYOL(nn.Module):
         assert self.target_encoder is not None, 'target encoder has not been created yet'
         update_moving_average(self.target_ema_updater, self.target_encoder, self.online_encoder)
 
-    def forward(self, x):
-        image_one, image_two = self.augment(x), self.augment(x)
+    def forward(self, image_one, image_two):
+        # image_one, image_two = self.augment(x) # , self.augment(x) # Due to the SIMCLR transform which returns two images
 
         online_proj_one = self.online_encoder(image_one)
         online_proj_two = self.online_encoder(image_two)

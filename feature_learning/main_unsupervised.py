@@ -62,10 +62,10 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
 def train_byol(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     print("Training BYOL!")
-    for step, (x, _, _, _) in enumerate(train_loader):
+    for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         # augmentations are done within the model
         # loss is computed within the model
-        loss = model(x)
+        loss = model(image_one=x_i, image_two=x_j)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -115,7 +115,7 @@ def main(_run, _log):
 
     train_sampler = None
 
-    transform = TransformsSimCLR(size=224) if args.unsupervised_method == 'simclr' else None
+    transform = TransformsSimCLR(size=224) # if args.unsupervised_method == 'simclr' else None
     # When transform = None, the dataloader will retrieve only a single image that is not transformed, as this will be done inside BYOL
 
     if args.dataset == "STL10":
