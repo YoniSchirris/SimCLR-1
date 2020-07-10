@@ -31,11 +31,11 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     t0=time.time()
 
-    t_port=[]
-    t_model=[]
-    t_criterion=[]
-    t_optimize=[]
-    t_data=[]
+    t_port=0
+    t_model=0
+    t_criterion=0
+    t_optimize=0
+    t_data=0
     total_time = 0 
 
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
@@ -67,15 +67,16 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
 
         t5=time.time()
                 
-        t_port.append(t2-t1)
-        t_model.append(t3-t2)
-        t_criterion.append(t4-t3)
-        t_optimize.append(t5-t4)
-        t_data.append(t1-t0)
+        t_port+=t2-t1
+        t_model+=t3-t2
+        t_criterion+=t4-t3
+        t_optimize+=t5-t4
+        t_data+=t1-t0
+        total_time += t5-t0
+
 
         if step % 50 == 0:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
-            total_time += t5-t0
             print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t criterion: {np.sum(t_criterion)/total_time} \t optimize: {np.sum(t_optimize)/total_time} \t data: {np.sum(t_data)/total_time}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
@@ -91,9 +92,9 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
 def train_byol(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     print("Training BYOL!")
-    t_port=[]
-    t_model=[]
-    t_data=[]
+    t_port=0
+    t_model=0
+    t_data=0
     total_time=0
     t0=time.time()
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
@@ -116,14 +117,13 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer):
 
         loss_epoch += loss.item()
 
-        t_data.append(t1-t0)
-        t_port.append(t2-t1)
-        t_model.append(t3-t2)
-
+        t_data += t1-t0
+        t_port += t2-t1
+        t_model += t3-t2
+        total_time += t3-t0
         if step % 50 == 0:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
-            total_time += t3-t0
-            print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t data: {np.sum(t_data)/total_time}")
+            print(f"Total: {total_time} \t port: {t_port/total_time} \t model: {t_model/total_time} \t data: {t_data/total_time}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
 
