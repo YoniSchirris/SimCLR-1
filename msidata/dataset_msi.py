@@ -61,17 +61,17 @@ class PreProcessedMSIDataset(Dataset):
         image = io.imread(img_name)
         label = row[2]
         #  ---- Transform image to torch with right dimensions
-        im = np.asarray(image)
+        # imt = image.transpose((2, 0, 1)) # THIS IS ALREADY HANDLED IN TOTENSOR
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
 
-        #TODO Check this color axis swap, this doesn't seem to make sense and
-
-        imt = im.transpose((2, 0, 1))
+        
         # ----- End of transform
 
-        tile = torch.from_numpy(imt).float()
+        #tile = torch.from_numpy(imt).float()  
+
+        tile = image # ToPILImage takes either torch tensor or ndarray
 
         if self.task == 'msi':
             # 1st column of labels holds LABEL/IMAGE_NAME.png
