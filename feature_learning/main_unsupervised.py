@@ -73,7 +73,7 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
         t_optimize.append(t5-t4)
         t_data.append(t1-t0)
 
-        if step % 1 == 50:
+        if step % 50 == 0:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
             total_time += t5-t0
             print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t criterion: {np.sum(t_criterion)/total_time} \t optimize: {np.sum(t_optimize)/total_time} \t data: {np.sum(t_data)/total_time}")
@@ -120,7 +120,7 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer):
         t_port.append(t2-t1)
         t_model.append(t3-t2)
 
-        if step % 1 == 0:
+        if step % 50 == 0:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
             total_time += t3-t0
             print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t data: {np.sum(t_data)/total_time}")
