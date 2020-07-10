@@ -36,6 +36,7 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     t_criterion=[]
     t_optimize=[]
     t_data=[]
+    total_time = 0 
 
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         t1=time.time()
@@ -74,7 +75,7 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
 
         if step % 1 == 50:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
-            total_time = t5-t0
+            total_time += t5-t0
             print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t criterion: {np.sum(t_criterion)/total_time} \t optimize: {np.sum(t_optimize)/total_time} \t data: {np.sum(t_data)/total_time}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
@@ -90,11 +91,20 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
 def train_byol(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     print("Training BYOL!")
+    t_port=[]
+    t_model=[]
+    t_data=[]
+    total_time=0
+    t0=time.time()
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         # augmentations are done within the model
         # loss is computed within the model
+        t1 = time.time()
+
         x_i = x_i.to(args.device)
         x_j = x_j.to(args.device)
+
+        t2=time.time()
 
         loss = model(image_one=x_i, image_two=x_j)
         optimizer.zero_grad()
@@ -102,16 +112,24 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer):
         optimizer.step()
         model.update_moving_average()
 
+        t3=time.time()
+
         loss_epoch += loss.item()
 
-        optimizer.step()
+        t_data.append(t1-t0)
+        t_port.append(t2-t1)
+        t_model.append(t3-t2)
 
-        if step % 50 == 0:
+        if step % 1 == 0:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
+            total_time += t3-t0
+            print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t data: {np.sum(t_data)/total_time}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
 
         args.global_step += 1
+
+        t0=time.time()
 
     return loss_epoch
 
