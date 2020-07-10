@@ -55,10 +55,11 @@ class PreProcessedMSIDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1])
-        image = io.imread(img_name)
-        label = self.labels.iloc[idx, 2]
+        row = self.labels.iloc[idx]
 
+        img_name = os.path.join(self.root_dir, row[1])
+        image = io.imread(img_name)
+        label = row[2]
         #  ---- Transform image to torch with right dimensions
         im = np.asarray(image)
         # swap color axis because
@@ -76,9 +77,9 @@ class PreProcessedMSIDataset(Dataset):
             # 1st column of labels holds LABEL/IMAGE_NAME.png
             # IMAGE_NAME is blk-ABCDEGHIJKLMNOP-TCGA-AA-####-01Z-00-DX1.png
             # where #### is the patient ID
-            patient_id = self.labels.iloc[idx,1].split('/')[1].split('-')[4]
+            patient_id = row[1].split('/')[1].split('-')[4]
         elif self.task == 'cancer':
-            patient_id = self.labels.iloc[idx,1].split('-')[1].split('.')[0]
+            patient_id = row[1].split('-')[1].split('.')[0]
             # TODO check the patient id setup. No idea what to do with it now.
         else:
             patient_id = []
