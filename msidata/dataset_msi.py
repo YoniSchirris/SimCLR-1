@@ -99,7 +99,9 @@ class PreProcessedMSIDataset(Dataset):
         t5=time.time()
 
         total_time=t5-t1
-        print(f'Total: {total_time} \t tolist: {(t2-t1)/total_time} \t get_info: {(t3-t2)/total_time} \t load_im: {(t4-t2)/total_time} \t transform_im {(t5-t4)/total_time}')
+        print_time=False
+        if print_time:
+            print(f'Total: {total_time} \t tolist: {(t2-t1)/total_time} \t get_info: {(t3-t2)/total_time} \t load_im: {(t4-t2)/total_time} \t transform_im {(t5-t4)/total_time}')
 
         return tile, label, hash(patient_id), img_name
 
