@@ -31,11 +31,11 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     loss_epoch = 0
     t0=time.time()
 
-    t_port=[1]
-    t_model=[1]
-    t_criterion=[1]
-    t_optimize=[1]
-    t_data=[1]
+    t_port=[]
+    t_model=[]
+    t_criterion=[]
+    t_optimize=[]
+    t_data=[]
 
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         t1=time.time()
@@ -65,22 +65,23 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
         optimizer.step()
 
         t5=time.time()
+                
+        t_port.append(t2-t1)
+        t_model.append(t3-t2)
+        t_criterion.append(t4-t3)
+        t_optimize.append(t5-t4)
+        t_data.append(t1-t0)
 
-        if step % 50 == 0:
+        if step % 1 == 50:
             print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
-            total_time = np.sum(t_port + t_model + t_criterion + t_optimize + t_data)
+            total_time = t5-t0
             print(f"Total: {total_time} \t port: {np.sum(t_port)/total_time} \t model: {np.sum(t_model)/total_time} \t criterion: {np.sum(t_criterion)/total_time} \t optimize: {np.sum(t_optimize)/total_time} \t data: {np.sum(t_data)/total_time}")
 
         writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
         loss_epoch += loss.item()
         args.global_step += 1
 
-        
-        t_port.append(t2-t1)
-        t_model.append(t3-t2)
-        t_criterion.append(t4-t3)
-        t_optimize.append(t5-t4)
-        t_data.append(t1-t0)
+
 
         t0=time.time()
     

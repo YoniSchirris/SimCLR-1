@@ -52,26 +52,16 @@ class PreProcessedMSIDataset(Dataset):
         return full_data_len
 
     def __getitem__(self, idx):
+        t1 = time.time()
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
+        t2=time.time()
+
+
         row = self.labels.iloc[idx]
-
-        img_name = os.path.join(self.root_dir, row[1])
-        image = io.imread(img_name)
         label = row[2]
-        #  ---- Transform image to torch with right dimensions
-        # imt = image.transpose((2, 0, 1)) # THIS IS ALREADY HANDLED IN TOTENSOR
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C X H X W
-
-        
-        # ----- End of transform
-
-        #tile = torch.from_numpy(imt).float()  
-
-        tile = image # ToPILImage takes either torch tensor or ndarray
+        im_rel_path = row[1]
 
         if self.task == 'msi':
             # 1st column of labels holds LABEL/IMAGE_NAME.png
@@ -84,8 +74,32 @@ class PreProcessedMSIDataset(Dataset):
         else:
             patient_id = []
 
+        t3=time.time()
+
+        img_name = os.path.join(self.root_dir, im_rel_path)
+        tile = io.imread(img_name) # ToPILImage takes either torch tensor or ndarray
+
+        t4=time.time()
+        
+        #  ---- Transform image to torch with right dimensions
+        # imt = image.transpose((2, 0, 1)) # THIS IS ALREADY HANDLED IN TOTENSOR
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C X H X W
+        # ----- End of transform
+
+        #tile = torch.from_numpy(imt).float()  
+
         if self.transform:
             tile = self.transform(tile)
+        else:
+            tile = tile.transpose((2,0,1))
+            tile = torch.from_numpy(tile).float()
+
+        t5=time.time()
+
+        total_time=t5-t1
+        print(f'Total: {total_time} \t tolist: {(t2-t1)/total_time} \t get_info: {(t3-t2)/total_time} \t load_im: {(t4-t2)/total_time} \t transform_im {(t5-t4)/total_time}')
 
         return tile, label, hash(patient_id), img_name
 
