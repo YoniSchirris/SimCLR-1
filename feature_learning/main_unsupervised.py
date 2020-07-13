@@ -178,7 +178,8 @@ def main(_run, _log):
     elif args.dataset == 'msi-kather':
         train_dataset = dataset_msi(root_dir=args.path_to_msi_data, transform=transform, data_fraction=args.data_pretrain_fraction)
 
-    elif args.dataset == 'msi-tcga':    
+    elif args.dataset == 'msi-tcga':
+        args.data_pretrain_fraction=1    
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
         assert (args.root_dir_for_tcga_tiles), "Please provide the root dir for the tcga tiles"
         train_dataset = dataset_tcga(csv_file=args.path_to_msi_data, root_dir=args.root_dir_for_tcga_tiles, transform=transform)            
