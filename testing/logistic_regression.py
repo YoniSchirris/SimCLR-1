@@ -154,7 +154,7 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
     return loss_epoch, accuracy_epoch
 
 
-def test(args, loader, simclr_model, model, criterion, optimizer):
+def validate(args, loader, simclr_model, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
 
@@ -162,7 +162,6 @@ def test(args, loader, simclr_model, model, criterion, optimizer):
     preds = [] 
     patients = []
     img_names = []
-
 
     model.eval()
 
@@ -332,9 +331,13 @@ def main(_run, _log):
 
 
 
-
-    simclr_model, _, _ = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
-    simclr_model = simclr_model.to(args.device)
+    if args.logistic_extractor == 'byol':
+        # We get the rn18 backbone with the loaded state dict
+        print("Loading BYOL model ... ")
+        _, _, _, simclr_model, n_features = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
+    else:
+        simclr_model, _, _ = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
+        simclr_model = simclr_model.to(args.device)
 
     if args.freeze_encoder:
         simclr_model.eval()
@@ -347,6 +350,9 @@ def main(_run, _log):
     
     if args.logistic_extractor == 'simclr':
         n_features = simclr_model.n_features
+    elif args.logistic_extractor == 'byol':
+        # We returned n_features in load_model()..
+        pass
     else:
         n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclr_v1_x1_0': 1024}[args.logistic_extractor]
 
@@ -375,6 +381,8 @@ def main(_run, _log):
         assert not (args.precompute_features and args.use_precomputed_features), "Ambiguous config. Precompute features or use precomputed features?"
 
         drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
+
+        #TODO ADD TRAIN_VAL SAMPLER
 
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -418,6 +426,7 @@ def main(_run, _log):
             train_loader, test_loader = get_precomputed_dataloader(args, run_id)
 
             arr_train_loader, arr_test_loader = train_loader, test_loader
+
     elif args.use_precomputed_features:
         
         assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
@@ -427,6 +436,7 @@ def main(_run, _log):
         arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
         arr_train_loader, arr_test_loader = train_loader, test_loader
+
 
     for epoch in range(args.logistic_epochs):
         loss_epoch, accuracy_epoch = train(
@@ -443,7 +453,7 @@ def main(_run, _log):
                 
 
             # Test every x epochs
-            loss_epoch, accuracy_epoch, labels, preds, patients = test(
+            loss_epoch, accuracy_epoch, labels, preds, patients = validate(
                 args, arr_test_loader, simclr_model, model, criterion, optimizer
             )
 
