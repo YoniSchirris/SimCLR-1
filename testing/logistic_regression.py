@@ -80,7 +80,7 @@ def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size
     return train_loader, test_loader
 
 
-def train(args, loader, simclr_model, model, criterion, optimizer):
+def train(args, loader, extractor, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
     for step, data in enumerate(loader):
@@ -94,13 +94,13 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
 
         if not (args.precompute_features or args.use_precomputed_features):
             if args.freeze_encoder:
-                simclr_model.eval()
+                extractor.eval()
                 with torch.no_grad():
-                    out = simclr_model.forward(x)
+                    out = extractor.forward(x)
      
             else:
-                simclr_model.train()
-                out = simclr_model.forward(x)
+                extractor.train()
+                out = extractor.forward(x)
         
         
             if args.logistic_extractor=='simclr':
@@ -154,7 +154,7 @@ def train(args, loader, simclr_model, model, criterion, optimizer):
     return loss_epoch, accuracy_epoch
 
 
-def validate(args, loader, simclr_model, model, criterion, optimizer):
+def validate(args, loader, extractor, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
 
@@ -176,10 +176,10 @@ def validate(args, loader, simclr_model, model, criterion, optimizer):
         y = y.to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
-            simclr_model.eval()
+            extractor.eval()
 
             with torch.no_grad():
-                out = simclr_model.forward(x)
+                out = extractor.forward(x)
      
             if args.logistic_extractor=='simclr':
                 # Simclr returns (h, z)
@@ -334,22 +334,23 @@ def main(_run, _log):
     if args.logistic_extractor == 'byol':
         # We get the rn18 backbone with the loaded state dict
         print("Loading BYOL model ... ")
-        _, _, _, simclr_model, n_features = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
+        _, _, _, extractor, n_features = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
     else:
-        simclr_model, _, _ = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
-        simclr_model = simclr_model.to(args.device)
+        extractor, _, _ = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
+
+    extractor = extractor.to(args.device)
 
     if args.freeze_encoder:
-        simclr_model.eval()
+        extractor.eval()
     else:
-        simclr_model.train()
+        extractor.train()
 
     ## Logistic Regression
     # n_classes = 10  # stl-10
     n_classes = 2  # MSI VS MSS
     
     if args.logistic_extractor == 'simclr':
-        n_features = simclr_model.n_features
+        n_features = extractor.n_features
     elif args.logistic_extractor == 'byol':
         # We returned n_features in load_model()..
         pass
@@ -405,7 +406,7 @@ def main(_run, _log):
         if args.precompute_features_in_memory:
             print("### Creating features from pre-trained context model ###")
             (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
-                args, simclr_model, train_loader, test_loader, args.device
+                args, extractor, train_loader, test_loader, args.device
             )
 
             arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
@@ -419,8 +420,8 @@ def main(_run, _log):
 
             # This overwrites any other saved feature vectors we have. That means that we can NOT run several scripts at the same time..
 
-            infer_and_save(loader=train_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
-            infer_and_save(loader=test_loader, context_model=simclr_model, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
+            infer_and_save(loader=train_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
+            infer_and_save(loader=test_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             
             # Overwriting previous variable names to reduce memory load
             train_loader, test_loader = get_precomputed_dataloader(args, run_id)
@@ -431,8 +432,8 @@ def main(_run, _log):
         
         assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
         print(f"Removing SIMCLR model from memory, as we use precomputed features..")
-        del simclr_model
-        simclr_model = None
+        del extractor
+        extractor = None
         arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
         arr_train_loader, arr_test_loader = train_loader, test_loader
@@ -440,21 +441,21 @@ def main(_run, _log):
 
     for epoch in range(args.logistic_epochs):
         loss_epoch, accuracy_epoch = train(
-            args, arr_train_loader, simclr_model, model, criterion, optimizer
+            args, arr_train_loader, extractor, model, criterion, optimizer
         )
         print(
             f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(arr_train_loader)}\t Accuracy: {accuracy_epoch / len(arr_train_loader)}"
         )
         if (epoch+1) % args.save_logistic_model_each_epochs == 0:
             args.current_epoch = epoch+1
-            if simclr_model:
-                save_model(args, simclr_model, None, prepend='extractor_')
+            if extractor:
+                save_model(args, extractor, None, prepend='extractor_')
             save_model(args, model, None, prepend='classifier_')
                 
 
             # Test every x epochs
             loss_epoch, accuracy_epoch, labels, preds, patients = validate(
-                args, arr_test_loader, simclr_model, model, criterion, optimizer
+                args, arr_test_loader, extractor, model, criterion, optimizer
             )
 
             final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
