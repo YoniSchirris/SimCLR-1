@@ -1,6 +1,7 @@
 
 from __future__ import print_function, division
-import os, os.path
+import os
+import os.path
 import torch
 import pandas as pd
 from skimage import io, transform
@@ -36,7 +37,7 @@ class TiledTCGADataset(Dataset):
         self.csv_file = csv_file
         self.root_dir = root_dir
         with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/kather/kather_msi_dot_id_to_tcga_id.json') as f:
-            self.dot_id_to_tcga_id =  json.load(f)
+            self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
         self.transform = transform
 
@@ -48,30 +49,33 @@ class TiledTCGADataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        case_id = str(self.labels.at[idx, "case"])
-        dot_id = self.labels.at[idx, "dot_id"]
-        tile_num = self.labels.at[idx, "num"]
+        row = self.labels.iloc[idx]
+
+        case_id = str(row['case'])
+        dot_id = row['dot_id']
+        tile_num = row['num']
+        patient_id = self.dot_id_to_tcga_id[dot_id.split('-')][2]
+        label=row['msi']
+
+        # case_id = str(self.labels.at[idx, "case"])
+        # dot_id = self.labels.at[idx, "dot_id"]
+        # tile_num = self.labels.at[idx, "num"]
+        # patient_id = self.dot_id_to_tcga_id[dot_id.split('-')][2]
+
+        # label= self.labels.at[idx, "msi"]
+
         img_name = os.path.join(self.root_dir, f'case{case_id}',
                                 dot_id,
                                 'jpeg',
                                 f'tile{tile_num}.jpg'
                                 )
-        image = io.imread(img_name)
-        patient_id = self.dot_id_to_tcga_id[dot_id.split('-')[2]
-
-        label = self.labels.at[idx, "msi"]
-
-        #  ---- Transform image to torch with right dimensions
-        im = np.asarray(image)
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C X H X W
-        imt = im.transpose((2, 0, 1))
-        # ----- End of transform
-
-        tile = torch.from_numpy(imt).float()
+        tile = io.imread(img_name)
 
         if self.transform:
-            tile = self.transform(tile)
-        sample = (tile, patient_id, label, img_name)
+            tile= self.transform(tile)
+        else:
+            tile= tile.transpose((2, 0, 1))
+            tile= torch.from_numpy(tile).float()
+            
+        sample= (tile, patient_id, label, img_name)
         return sample
