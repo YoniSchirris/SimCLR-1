@@ -54,7 +54,7 @@ class TiledTCGADataset(Dataset):
         case_id = str(row['case'])
         dot_id = row['dot_id']
         tile_num = row['num']
-        patient_id = self.dot_id_to_tcga_id[dot_id.split('-')][2]
+        patient_id = self.dot_id_to_tcga_id[dot_id.split('-')[2]]
         label=row['msi']
 
         # case_id = str(self.labels.at[idx, "case"])
