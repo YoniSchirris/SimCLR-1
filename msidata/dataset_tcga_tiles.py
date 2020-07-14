@@ -64,7 +64,7 @@ class TiledTCGADataset(Dataset):
 
         # label= self.labels.at[idx, "msi"]
 
-        img_name = os.path.join(self.root_dir, f'case{case_id}',
+        img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                 dot_id,
                                 'jpeg',
                                 f'tile{tile_num}.jpg'
