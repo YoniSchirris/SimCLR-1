@@ -49,7 +49,6 @@ class TiledTCGADataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-<<<<<<< Updated upstream
         row = self.labels.iloc[idx]
 
         case_id = str(row['case'])
@@ -66,17 +65,10 @@ class TiledTCGADataset(Dataset):
         # label= self.labels.at[idx, "msi"]
 
         img_name = os.path.join(self.root_dir, f'case{case_id}',
-=======
-        case_id = str(self.labels.at[idx, "case"])
-        dot_id = self.labels.at[idx, "dot_id"]
-        tile_num = self.labels.at[idx, "num"]
-        img_name = os.path.join(self.root_dir, f'case-{case_id}',
->>>>>>> Stashed changes
                                 dot_id,
                                 'jpeg',
                                 f'tile{tile_num}.jpg'
                                 )
-<<<<<<< Updated upstream
         tile = io.imread(img_name)
 
         if self.transform:
@@ -86,24 +78,4 @@ class TiledTCGADataset(Dataset):
             tile= torch.from_numpy(tile).float()
             
         sample= (tile, patient_id, label, img_name)
-=======
-        image = io.imread(img_name)
-        patient_id = self.dot_id_to_tcga_id[dot_id].split('-')[2]
-
-        label = self.labels.at[idx, "msi"]
-
-        #  ---- Transform image to torch with right dimensions
-        im = np.asarray(image)
-        # swap color axis because
-        # numpy image: H x W x C
-        # torch image: C X H X W
-        imt = im.transpose((2, 0, 1))
-        # ----- End of transform
-
-        tile = torch.from_numpy(imt).float()
-
-        if self.transform:
-            tile = self.transform(tile)
-        sample = (tile, patient_id, label, img_name)
->>>>>>> Stashed changes
         return sample
