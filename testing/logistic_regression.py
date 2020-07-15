@@ -273,6 +273,10 @@ def get_precomputed_dataloader(args, run_id, train_sampler, val_sampler):
         tensor_per_patient=args.load_patient_level_tensors
     )
 
+    train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.logistic_batch_size,
