@@ -23,10 +23,10 @@ def split_indices_by_patient(labels, val_split):
 
 def split_indices(labels, val_split):
     val_msi_idc = labels[labels['label']==1].sample(frac=val_split).index.tolist()
-    train_msi_idc = labels[labels['label']==1 & ~df.index.isin(val_msi_idc)].index.tolist()
+    train_msi_idc = labels[labels['label']==1 & ~labels.index.isin(val_msi_idc)].index.tolist()
 
     val_mss_idc = labels[labels['label']==0].sample(frac=val_split).index.tolist()
-    train_mss_idc = labels[labels['label']==0 & ~df.index.isin(val_mss_idc)].index.tolist()
+    train_mss_idc = labels[labels['label']==0 & ~labels.index.isin(val_mss_idc)].index.tolist()
 
     val_indices = val_mss_idc + val_msi_idc
     train_indices = train_mss_idc + train_msi_idc
