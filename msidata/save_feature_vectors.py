@@ -42,7 +42,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
             with torch.no_grad():
                 h, z = context_model(x)
         else:
-            if model_type in ['imagenet-resnet18', 'imagenet-resnet50', 'imagenet-shufflenet-v1_x1_0']:
+            if model_type in ['imagenet-resnet18', 'imagenet-resnet50', 'imagenet-shufflenet-v1_x1_0', 'byol']:
                 context_model.fc = torch.nn.Identity()
                 with torch.no_grad():
                     h = context_model(x)
@@ -52,8 +52,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
         h = h.detach()
 
         for i, img_name in enumerate(img_names):
-            feature_vec = h[i]
-            torch.save(feature_vec, img_name.replace('.png', f'{append_with}.pt'))
+            torch.save(h[i].clone(), img_name.replace('.png', f'{append_with}.pt'))
 
         if step % 20 == 0:
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
