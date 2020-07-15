@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from torch.utils.data.sampler import SubsetRandomSampler
 import argparse
 import numpy as np
 
@@ -12,6 +13,7 @@ from modules import LogisticRegression
 from modules.deepmil import Attention
 from modules.transformations import TransformsSimCLR
 from modules.losses.focal_loss import FocalLoss
+from modules.Splitter import split_indices_by_patient, split_indices, get_train_val_indices
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 from msidata.save_feature_vectors import infer_and_save
@@ -20,6 +22,7 @@ from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDat
 import pandas as pd
 import time
 import datetime
+import os
 
 from sklearn import metrics
 
@@ -53,22 +56,29 @@ def inference(args, loader, context_model, device):
 
     feature_vector = np.array(feature_vector)
     labels_vector = np.array(labels_vector)
-    print("Features shape {}".format(feature_vector.shape))
     return feature_vector, labels_vector, patients, imgs
 
 
-def get_features(args, context_model, train_loader, test_loader, device):
+def get_features(args, context_model, train_loader, val_loader, test_loader, device):
     train_X, train_y, train_patients, train_imgs = inference(args, train_loader, context_model, device)
+    val_X, val_y, val_patients, val_imgs = inference(args, val_loader, context_model, device)
     test_X, test_y, test_patients, test_imgs = inference(args, test_loader, context_model, device)
-    return train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs
+    return train_X, train_y, val_X, val_y, test_X, test_y, train_patients, train_imgs, val_patients, val_imgs, test_patients, test_imgs
 
 
-def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size, train_patients, train_imgs, test_patients, test_imgs):
+def create_data_loaders_from_arrays(X_train, y_train, X_val, y_val, X_test, y_test, batch_size, train_patients, train_imgs, val_patients, val_imgs, test_patients, test_imgs):
     train = torch.utils.data.TensorDataset(
         torch.from_numpy(X_train), torch.from_numpy(y_train), torch.Tensor(train_patients)
     )
     train_loader = torch.utils.data.DataLoader(
         train, batch_size=batch_size, shuffle=False
+    )
+
+    val = torch.utils.data.TensorDataset(
+        torch.from_numpy(X_val), torch.from_numpy(y_val), torch.Tensor(val_patients)
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val, batch_size=batch_size, shuffle=False
     )
 
     test = torch.utils.data.TensorDataset(
@@ -77,13 +87,13 @@ def create_data_loaders_from_arrays(X_train, y_train, X_test, y_test, batch_size
     test_loader = torch.utils.data.DataLoader(
         test, batch_size=batch_size, shuffle=False
     )
-    return train_loader, test_loader
+    return train_loader, val_loader, test_loader
 
 
-def train(args, loader, extractor, model, criterion, optimizer):
+def train(args, train_loader, val_loader, extractor, model, criterion, optimizer):
     loss_epoch = 0
     accuracy_epoch = 0
-    for step, data in enumerate(loader):
+    for step, data in enumerate(train_loader):
         optimizer.zero_grad()
 
         x = data[0]
@@ -235,7 +245,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
     return loss_epoch, accuracy_epoch, labels, preds, patients
 
 
-def get_precomputed_dataloader(args, run_id):
+def get_precomputed_dataloader(args, run_id, train_sampler, val_sampler):
     print(f"### Loading precomputed feature vectors from run id:  {run_id} ####")
 
     assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
@@ -266,9 +276,17 @@ def get_precomputed_dataloader(args, run_id):
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.logistic_batch_size,
-        shuffle=True,
         drop_last=False,
         num_workers=args.workers,
+        sampler=train_sampler
+    )
+
+    val_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=args.logistic_batch_size,
+        drop_last=False,
+        num_workers=args.workers,
+        sampler=val_sampler
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -279,7 +297,7 @@ def get_precomputed_dataloader(args, run_id):
         num_workers=args.workers,
     )
 
-    return train_loader, test_loader
+    return train_loader, val_loader, test_loader
 
 
 @ex.automain
@@ -317,7 +335,7 @@ def main(_run, _log):
             download=True,
             transform=TransformsSimCLR(size=224).test_transform,
         )
-    elif args.dataset == "msi":
+    elif args.dataset == "msi-kather":
         train_dataset = dataset_msi(
             root_dir=args.path_to_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
@@ -326,6 +344,13 @@ def main(_run, _log):
             root_dir=args.path_to_test_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
             data_fraction=args.data_testing_test_fraction)
+
+        train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+
+        
+        train_sampler = SubsetRandomSampler(train_indices)
+        val_sampler = SubsetRandomSampler(val_indices)
+        
     else:
         raise NotImplementedError
 
@@ -388,32 +413,40 @@ def main(_run, _log):
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=args.logistic_batch_size,
-            shuffle=True,
             drop_last=drop_last,
             num_workers=args.workers,
+            sampler=train_sampler
         )
-
+        val_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.logistic_batch_size,
+            drop_last=drop_last,
+            num_workers=args.workers,
+            sampler=val_sampler
+        )
         test_loader = torch.utils.data.DataLoader(
             test_dataset,
             batch_size=args.logistic_batch_size,
-            shuffle=False,
             drop_last=drop_last,
-            num_workers=args.workers,
-        )         
+            num_workers=args.workers
+        )
+     
 
     if args.precompute_features:
    
         if args.precompute_features_in_memory:
             print("### Creating features from pre-trained context model ###")
-            (train_X, train_y, test_X, test_y, train_patients, train_imgs, test_patients, test_imgs) = get_features(
-                args, extractor, train_loader, test_loader, args.device
+            
+            (train_X, train_y, val_X, val_y, test_X, test_y, train_patients, train_imgs, val_patients, val_imgs, test_patients, test_imgs) = get_features(
+                args, extractor, train_loader, val_loader, test_loader, args.device
             )
 
-            arr_train_loader, arr_test_loader = create_data_loaders_from_arrays(
-                train_X, train_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, test_patients, test_imgs
+            arr_train_loader, arr_val_loader, arr_test_loader = create_data_loaders_from_arrays(
+                train_X, train_y, val_X, val_y, test_X, test_y, args.logistic_batch_size, train_patients, train_imgs, val_patients, val_imgs, test_patients, test_imgs
             )
         else:
             print("### Creating and saving features from pre-trained context model ###")
+            print(args.data_testing_train_fraction)
             assert args.data_testing_train_fraction == 1 and args.data_testing_test_fraction == 1, "Bugs might occur when we do not save feature vectors for all data due to sampling issues"
 
             run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
@@ -421,12 +454,13 @@ def main(_run, _log):
             # This overwrites any other saved feature vectors we have. That means that we can NOT run several scripts at the same time..
 
             infer_and_save(loader=train_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
+            infer_and_save(loader=val_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             infer_and_save(loader=test_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             
             # Overwriting previous variable names to reduce memory load
-            train_loader, test_loader = get_precomputed_dataloader(args, run_id)
+            train_loader, val_loader, test_loader = get_precomputed_dataloader(args, run_id, train_sampler, val_sampler)
 
-            arr_train_loader, arr_test_loader = train_loader, test_loader
+            arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
 
     elif args.use_precomputed_features:
         
@@ -434,44 +468,78 @@ def main(_run, _log):
         print(f"Removing SIMCLR model from memory, as we use precomputed features..")
         del extractor
         extractor = None
-        arr_train_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
+        arr_train_loader, arr_val_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id, train_sampler, val_sampler)
     else:
-        arr_train_loader, arr_test_loader = train_loader, test_loader
+        arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
 
 
+    val_losses = []
+    val_roc = []
+    min_loss=1e4
     for epoch in range(args.logistic_epochs):
         loss_epoch, accuracy_epoch = train(
-            args, arr_train_loader, extractor, model, criterion, optimizer
+            args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer
         )
         print(
             f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(arr_train_loader)}\t Accuracy: {accuracy_epoch / len(arr_train_loader)}"
         )
-        if (epoch+1) % args.save_logistic_model_each_epochs == 0:
-            args.current_epoch = epoch+1
-            if extractor:
-                save_model(args, extractor, None, prepend='extractor_')
-            save_model(args, model, None, prepend='classifier_')
-                
 
-            # Test every x epochs
-            loss_epoch, accuracy_epoch, labels, preds, patients = validate(
-                args, arr_test_loader, extractor, model, criterion, optimizer
+        if (epoch+1) % args.evaluate_every == 0:
+            # evaluate
+            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(
+                args, arr_val_loader, extractor, model, criterion, optimizer
             )
+            val_losses.append(val_loss)
 
-            final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
-
-            humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
-
-            print(f'This is the out dir {args.out_dir}')
-            final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
-
-            dfgroup = final_data.groupby(['patient']).mean()
+            # COMPUTE ROCAUC
+            val_data = pd.DataFrame(data={'patient': val_patients, 'labels': val_labels, 'preds': val_preds})
+            dfgroup = val_data.groupby(['patient']).mean()
             labels = dfgroup['labels'].values
             preds = dfgroup['preds'].values
             rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
 
+            val_roc.append(rocauc)
 
-            print(
-                f"[TEST EPOCH {epoch+1}]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
-            )
+            args.current_epoch = epoch+1
+
+            if extractor:
+                save_model(args, extractor, None, prepend='extractor_')
+            save_model(args, model, None, prepend='classifier_')
+
+            
+                
+
+    # FINAL TEST
+
+    best_model_num = np.argmax(val_roc)
+    best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
+
+    print(f'Validation ROCs: {val_roc}\nValidation loss: {val_losses}.\nBest performance by model @ epoch # {best_model_epoch}')
+
+    if extractor:
+        extractor_fp = os.path.join(args.out_dir, "extractor_checkpoint_{}.tar".format(best_model_epoch))
+        extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
+    model_fp = os.path.join(args.out_dir, "classifier_checkpoint_{}.tar".format(best_model_epoch))
+    model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+        
+    loss_epoch, accuracy_epoch, labels, preds, patients = validate(
+        args, arr_test_loader, extractor, model, criterion, optimizer
+    )
+
+    final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+
+    humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
+
+    print(f'This is the out dir {args.out_dir}')
+    final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
+
+    dfgroup = final_data.groupby(['patient']).mean()
+    labels = dfgroup['labels'].values
+    preds = dfgroup['preds'].values
+    rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+
+
+    print(
+        f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
+    )
 

@@ -42,7 +42,7 @@ class PreProcessedMSIDataset(Dataset):
 
         self.root_dir = root_dir
         self.setup()
-        self.labels = pd.read_csv(self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=42)
+        self.labels = pd.read_csv(self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=42).reset_index(drop=True)
         self.transform = transform
 
     def __len__(self, val=False):
@@ -57,7 +57,6 @@ class PreProcessedMSIDataset(Dataset):
             idx = idx.tolist()
 
         t2=time.time()
-
 
         row = self.labels.iloc[idx]
         label = row[2]
