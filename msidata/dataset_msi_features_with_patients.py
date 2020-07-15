@@ -223,7 +223,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
     def _get_tile_item(self, idx):
 
-        row = self.labels.loc[idx]
+        row = self.labels.iloc[idx]
 
         if torch.is_tensor(idx):
             idx = idx.tolist()
