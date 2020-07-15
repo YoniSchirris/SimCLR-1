@@ -80,6 +80,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         
 
         if sampling_strategy == 'patient' and not self.tensor_per_patient:
+            print("===== Are you sure you want to do this? This is very inefficient.... =====")
             self.grouped_labels = self.labels.groupby(['patient_id'])
             self.indices_for_groups = list(self.grouped_labels.groups.values())
 
@@ -87,7 +88,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
     def __len__(self, val=False):
         # full_data_len = len([name for label in self.label_classes.keys() for name in os.listdir(f'{self.root_dir}/{label}') if
-        #             os.path.isfile(os.path.join(f'{self.root_dir}/{label}', name)) and name.endswith('.png')])
+        #             os.path.isfile(os.path.join(f'{sel    f.root_dir}/{label}', name)) and name.endswith('.png')])
         if self.sampling_strategy == 'tile' or (self.sampling_strategy == 'patient' and self.tensor_per_patient):
             full_data_len = len(self.labels.index)
         elif self.sampling_strategy == 'patient' and not self.tensor_per_patient:
@@ -129,7 +130,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
         if self.sampling_strategy=='tile' or (self.sampling_strategy=='patient' and self.tensor_per_patient):
             # Randomly sample tiles to reduce the amount of data
-            subsample_df = raw_df.sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
+            subsample_df = raw_df.sample(frac=data_fraction, random_state=42).reset_index(drop=True) # NOTE: .sample() shuffles, even when frac=1
         elif self.sampling_strategy=='patient' and not self.tensor_per_patient:
             # Randomly sample patients to reduce the amount of data
             # change to sample patients
@@ -137,7 +138,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
             patients = raw_df['patient_id'].unique()
             subsample_patients = np.random.choice(patients, int(data_fraction*len(patients)))
             subsample_df = raw_df[raw_df['patient_id'].isin(subsample_patients)]
-            subsample_df = raw_df.sample(frac=data_fraction, random_state=42) # NOTE: .sample() shuffles, even when frac=1
+            subsample_df = raw_df.sample(frac=data_fraction, random_state=42).reset_index(drop=True) # NOTE: .sample() shuffles, even when frac=1
         else:
             raise NotImplementedError()
 
@@ -180,12 +181,13 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
 
     def _get_patient_items(self, idx):
+        assert (False), "This way of loading data is very inefficient. Please use the tensor per patient option"
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
         indices = self.indices_for_groups[idx] # using iloc, as we pick SOME of the indices
 
-        patient_data = self.labels.loc[indices] # using loc, as we want the original indices, not the current location in the df.
+        patient_data = self.labels.iloc[indices] # using loc, as we want the original indices, not the current location in the df.
 
         patient_ids = list(patient_data['patient_id'])
 
@@ -220,16 +222,19 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
 
     def _get_tile_item(self, idx):
+
+        row = self.labels.loc[idx]
+
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
         if not self.tensor_per_patient:
-            img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1]).replace(".png", f"{self.append_img_path_with}.pt") 
+            img_name = os.path.join(self.root_dir, row[1]).replace(".png", f"{self.append_img_path_with}.pt") 
         else:
-            img_name = os.path.join(self.root_dir, self.labels.iloc[idx, 1])
+            img_name = os.path.join(self.root_dir, row[1])
         vector = torch.load(img_name, map_location=self.device)
-        label = self.labels.iloc[idx, 2]
-        patient_id = self.labels.iloc[idx, 3]
+        label = row[2]
+        patient_id = row[3]
         return vector, label, patient_id, img_name
 
     def setup(self):
