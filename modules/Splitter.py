@@ -24,7 +24,7 @@ def split_indices_by_patient(labels, val_split):
 def split_indices(labels, val_split):
     labels_msi = labels[labels['label']==1]
     val_msi_idc = labels_msi.sample(frac=val_split).index.tolist()
-    train_msi_idc = labels_msi[~labels_msi.index.isin(val_msi_idc)]
+    train_msi_idc = labels_msi[~labels_msi.index.isin(val_msi_idc)].index.tolist()
     
     labels_mss = labels[labels['label']==0]
     val_mss_idc = labels_mss.sample(frac=val_split).index.tolist()
