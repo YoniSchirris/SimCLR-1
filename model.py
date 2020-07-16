@@ -37,6 +37,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
         #TODO Add several resnets
         #TODO Add possibility of loading previous models
         backbone = models.resnet18(pretrained=False)
+        n_features = backbone.fc.in_features
 
         if reload_model:
             model_fp = os.path.join(
@@ -44,7 +45,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
             )
             print(f'### Loading model from: {model_fp} ###')
             backbone.load_state_dict(torch.load(model_fp, map_location=args.device.type))
-            n_features = backbone.fc.in_features
+            
             backbone.fc = torch.nn.Identity()
 
         model = BYOL(
