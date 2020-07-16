@@ -484,9 +484,7 @@ def main(_run, _log):
         loss_epoch, accuracy_epoch = train(
             args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer
         )
-        print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Loss: {loss_epoch / len(arr_train_loader)}\t Accuracy: {accuracy_epoch / len(arr_train_loader)}"
-        )
+        
 
         if (epoch+1) % args.evaluate_every == 0:
             # evaluate
@@ -509,6 +507,10 @@ def main(_run, _log):
             if extractor:
                 save_model(args, extractor, None, prepend='extractor_')
             save_model(args, model, None, prepend='classifier_')
+
+            print(
+            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Val Loss: {val_loss / len(arr_val_loader)}\t Accuracy: {val_accuracy / len(arr_val_loader)}\t ROC AUC: {rocauc}"
+            )
 
             
                 
