@@ -4,6 +4,8 @@ import torchvision.transforms as transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 import argparse
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
+
 
 from experiment import ex
 from model import load_model, save_model
@@ -313,6 +315,10 @@ def main(_run, _log):
 
     root = "./datasets"
 
+    tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
+    os.makedirs(tb_dir)
+    writer = SummaryWriter(log_dir=tb_dir)
+
     if args.dataset == "STL10":
         train_dataset = torchvision.datasets.STL10(
             root,
@@ -402,6 +408,7 @@ def main(_run, _log):
     
     criterion = torch.nn.CrossEntropyLoss()
 
+    ### ============= GET THE CORRECT DATA LOADERS =============  ###
 
     if args.precompute_features or not args.use_precomputed_features:
         # If we precompute features, we need an image loader
@@ -477,6 +484,9 @@ def main(_run, _log):
         arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
 
 
+
+
+    ### ============= TRAINING =============  ###
     val_losses = []
     val_roc = []
     min_loss=1e4
@@ -484,6 +494,9 @@ def main(_run, _log):
         loss_epoch, accuracy_epoch = train(
             args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer
         )
+
+        writer.add_scalar("loss/train", loss_epoch / len(arr_train_loader), epoch)
+
         
 
         if (epoch+1) % args.evaluate_every == 0:
@@ -500,6 +513,9 @@ def main(_run, _log):
             preds = dfgroup['preds'].values
             rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
 
+            writer.add_scalar("loss/val", val_loss / len(arr_val_loader), epoch)
+            writer.add_scalar("rocauc/val", rocauc, epoch)
+
             val_roc.append(rocauc)
 
             args.current_epoch = epoch+1
@@ -515,7 +531,7 @@ def main(_run, _log):
             
                 
 
-    # FINAL TEST
+    ### ============= TESTING =============  ###
 
     best_model_num = np.argmax(val_roc)
     best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
@@ -543,6 +559,9 @@ def main(_run, _log):
     labels = dfgroup['labels'].values
     preds = dfgroup['preds'].values
     rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+
+    writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
+    writer.add_scalar("rocauc/test", rocauc)
 
 
     print(
