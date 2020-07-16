@@ -205,12 +205,15 @@ def main(_run, _log):
         model, optimizer, scheduler = load_model(args, train_loader, reload_model=args.reload_model, model_type=args.unsupervised_method)
         criterion = NT_Xent(args.batch_size, args.temperature, args.device)
 
-    print(f"Using {args.n_gpu} GPUs")
+   
     if 'use_multi_gpu' not in vars(args).keys():
         args.use_multi_gpu=False
     if args.n_gpu > 1 and args.use_multi_gpu:
         model = torch.nn.DataParallel(model)
         model = convert_model(model)
+        print(f"Using {args.n_gpu} GPUs")
+    else:
+        print(f"{'Using 1 GPU' if 'cuda' in args.device else 'Using CPU'}")
         #TODO Check the batch size.. are we only training with 32 total so 8 per GPU? That's veeeery few.
 
     model = model.to(args.device)
