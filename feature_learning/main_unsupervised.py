@@ -212,8 +212,6 @@ def main(_run, _log):
         model = torch.nn.DataParallel(model)
         model = convert_model(model)
         print(f"Using {args.n_gpu} GPUs")
-    else:
-        print(f"{'Using 1 GPU' if 'cuda' in args.device else 'Using CPU'}")
         #TODO Check the batch size.. are we only training with 32 total so 8 per GPU? That's veeeery few.
 
     model = model.to(args.device)
