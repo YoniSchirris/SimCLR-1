@@ -29,24 +29,17 @@ import os
 from sklearn import metrics
 
 
-
-def inference(args, loader, context_model, device):
-    feature_vector = []
-    labels_vector = []
-    patients = []
-    imgs = []
+def infer(args, loader, context_model, device):
+    # get encoding of images
+    feature_vector, labels_vector, patients, imgs = [], [], [], []
     for step, (x, y, patient, img_name) in enumerate(loader):
         x = x.to(device)
-
-        # get encoding
         with torch.no_grad():
             if args.logistic_extractor == 'simclr':
                 h, z = context_model(x)
             else:
                 h = context_model(x)
-
         h = h.detach()
-
         feature_vector.extend(h.cpu().detach().numpy())
         labels_vector.extend(y.numpy())
 
@@ -62,9 +55,9 @@ def inference(args, loader, context_model, device):
 
 
 def get_features(args, context_model, train_loader, val_loader, test_loader, device):
-    train_X, train_y, train_patients, train_imgs = inference(args, train_loader, context_model, device)
-    val_X, val_y, val_patients, val_imgs = inference(args, val_loader, context_model, device)
-    test_X, test_y, test_patients, test_imgs = inference(args, test_loader, context_model, device)
+    train_X, train_y, train_patients, train_imgs = infer(args, train_loader, context_model, device)
+    val_X, val_y, val_patients, val_imgs = infer(args, val_loader, context_model, device)
+    test_X, test_y, test_patients, test_imgs = infer(args, test_loader, context_model, device)
     return train_X, train_y, val_X, val_y, test_X, test_y, train_patients, train_imgs, val_patients, val_imgs, test_patients, test_imgs
 
 
@@ -97,83 +90,56 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
     accuracy_epoch = 0
     for step, data in enumerate(train_loader):
         optimizer.zero_grad()
-
-        x = data[0]
-        y = data[1]
-
-        x = x.to(args.device)
-        y = y.to(args.device)
+        x, y = data[0].to(args.device), data[1].to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
             if args.freeze_encoder:
                 extractor.eval()
                 with torch.no_grad():
                     out = extractor.forward(x)
-     
             else:
                 extractor.train()
                 out = extractor.forward(x)
         
-        
-            if args.logistic_extractor=='simclr':
-                # Simclr returns (h, z)
+            if args.logistic_extractor=='simclr': # Simclr returns (h, z)
                 h = out[0]
                 x = h
-            else:
-                # Torchvision models return h
+            else:  # Torchvision models return h
                 h = out
-                x = h
-                # We name it x, since it's the input for the logistic regressors
-    
-
+                x = h  # We name it x, since it's the input for the logistic regressors, and it saves some memory
+        
+        model.train()
         if args.classification_head == 'logistic':
             output = model(x)
             if not args.use_focal_loss:
                 loss = criterion(output, y)
-            else:
-                # use focal loss
+            else: # use focal loss
                 focal = FocalLoss(args.focal_loss_alpha, args.focal_loss_gamma)
                 loss = torch.nn.functional.cross_entropy(output,y, reduction='none')
                 loss = focal(loss)
-
-
 
             predicted = output.argmax(1)
             acc = (predicted == y).sum().item() / y.size(0)
             loss_epoch += loss.item()
 
         elif args.classification_head == 'deepmil':
-
             Y_prob, Y_hat, A = model.forward(x)
-            
             loss = criterion(Y_prob, y)
-
             train_loss = loss.item()
             loss_epoch += train_loss
             error, _ = model.calculate_classification_error(y, Y_hat)
             acc = 1. - error
         
         accuracy_epoch += acc
-
-        loss.backward()
-        optimizer.step()
-
-        # if step % 100 == 0:
-        #     print(
-        #         f"Step [{step}/{len(loader)}]\t Loss: {loss.item()}\t Accuracy: {acc}"
-        #     )
+        loss.backward()         # Depending on the setup: Computes gradients for classifier and possibly extractor
+        optimizer.step()        # Can update both the classifier and the extractor, depending on the options
 
     return loss_epoch, accuracy_epoch
 
 
 def validate(args, loader, extractor, model, criterion, optimizer):
-    loss_epoch = 0
-    accuracy_epoch = 0
-
-    labels = []
-    preds = [] 
-    patients = []
-    img_names = []
+    loss_epoch, accuracy_epoch = 0, 0
+    labels, preds, patients, img_names = [], [], [], []
 
     model.eval()
 
@@ -188,20 +154,22 @@ def validate(args, loader, extractor, model, criterion, optimizer):
         y = y.to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
+            # x is an image not yet a feature vector
             extractor.eval()
 
             with torch.no_grad():
                 out = extractor.forward(x)
-     
-            if args.logistic_extractor=='simclr':
-                # Simclr returns (h, z)
+
+            if args.logistic_extractor=='simclr': # Simclr returns (h, z)
                 h = out[0]
                 x = h
-            else:
-                # Torchvision models return h
+            else: # Torchvision models return h
                 h = out
-                x = h
-                # We name it x, since it's the input for the logistic regressors
+                x = h  # We name it x, since it's the input for the logistic regressors
+               
+        else:
+            # x is already a feature vector, and can go straight into the classifier
+            pass
 
         if args.classification_head == 'logistic':
             with torch.no_grad():
@@ -221,7 +189,6 @@ def validate(args, loader, extractor, model, criterion, optimizer):
 
         elif args.classification_head == 'deepmil':
             with torch.no_grad():
-
                 Y_prob, Y_hat, A = model.forward(x)
                 loss = criterion(Y_prob, y)
                 train_loss = loss.item()
@@ -232,17 +199,14 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 preds.append(binary_Y_prob.item())       
 
         accuracy_epoch += acc
-
         labels += y.cpu().tolist()
         
-
         if isinstance(patient, torch.Tensor):
             # Happens when using dataset_msi, as we return a hash, which is an integer, which is made into a tensor
             patients += patient.cpu().tolist()
         else:
             # Happens when using dataset_Msi_features_with_patients, as we return the patient id as a string, which can't be tensorfied
             patients += list(patient)
-
 
     return loss_epoch, accuracy_epoch, labels, preds, patients
 
@@ -313,39 +277,12 @@ def main(_run, _log):
 
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    root = "./datasets"
-
     tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
     os.makedirs(tb_dir)
     writer = SummaryWriter(log_dir=tb_dir)
 
-    if args.dataset == "STL10":
-        train_dataset = torchvision.datasets.STL10(
-            root,
-            split="train",
-            download=True,
-            transform=TransformsSimCLR(size=224).test_transform,
-        )
-        test_dataset = torchvision.datasets.STL10(
-            root,
-            split="test",
-            download=True,
-            transform=TransformsSimCLR(size=224).test_transform,
-        )
-    elif args.dataset == "CIFAR10":
-        train_dataset = torchvision.datasets.CIFAR10(
-            root,
-            train=True,
-            download=True,
-            transform=TransformsSimCLR(size=224).test_transform,
-        )
-        test_dataset = torchvision.datasets.CIFAR10(
-            root,
-            train=False,
-            download=True,
-            transform=TransformsSimCLR(size=224).test_transform,
-        )
-    elif args.dataset == "msi-kather":
+
+    if args.dataset == "msi-kather":
         train_dataset = dataset_msi(
             root_dir=args.path_to_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
@@ -356,16 +293,13 @@ def main(_run, _log):
             data_fraction=args.data_testing_test_fraction)
 
         train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
-
-        
         train_sampler = SubsetRandomSampler(train_indices)
-        val_sampler = SubsetRandomSampler(val_indices)
-        
+        val_sampler = SubsetRandomSampler(val_indices)    
     else:
         raise NotImplementedError
 
 
-
+    # Get the extractor
     if args.logistic_extractor == 'byol':
         # We get the rn18 backbone with the loaded state dict
         print("Loading BYOL model ... ")
@@ -375,6 +309,7 @@ def main(_run, _log):
 
     extractor = extractor.to(args.device)
 
+    # Freeze encoder if asked for
     if args.freeze_encoder:
         extractor.eval()
     else:
@@ -384,6 +319,7 @@ def main(_run, _log):
     # n_classes = 10  # stl-10
     n_classes = 2  # MSI VS MSS
     
+    # Get number of features that feature extractor produces
     if args.logistic_extractor == 'simclr':
         n_features = extractor.n_features
     elif args.logistic_extractor == 'byol':
@@ -392,6 +328,7 @@ def main(_run, _log):
     else:
         n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclr_v1_x1_0': 1024}[args.logistic_extractor]
 
+    ## Get Classifier
     if args.classification_head == 'logistic':
         model = LogisticRegression(n_features, n_classes)
         optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
@@ -404,7 +341,6 @@ def main(_run, _log):
     model = model.to(args.device)
 
     print(model)
-
     
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -419,7 +355,7 @@ def main(_run, _log):
 
         drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
 
-        #TODO ADD TRAIN_VAL SAMPLER
+        #TODO ISNT THIS EXACTLY THE SAME AS THE LOADERS ABOVE? CAN SKIP THIS?
 
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -444,6 +380,7 @@ def main(_run, _log):
      
 
     if args.precompute_features:
+        # We need the image loader defined above 
    
         if args.precompute_features_in_memory:
             print("### Creating features from pre-trained context model ###")
@@ -462,8 +399,6 @@ def main(_run, _log):
 
             run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
 
-            # This overwrites any other saved feature vectors we have. That means that we can NOT run several scripts at the same time..
-
             infer_and_save(loader=train_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             infer_and_save(loader=val_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             infer_and_save(loader=test_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
@@ -474,6 +409,7 @@ def main(_run, _log):
             arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
 
     elif args.use_precomputed_features:
+        # Did not need any image loader, as we create a new vector-based dataset
         
         assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
         print(f"Removing SIMCLR model from memory, as we use precomputed features..")
@@ -481,32 +417,28 @@ def main(_run, _log):
         extractor = None
         arr_train_loader, arr_val_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id, train_sampler, val_sampler)
     else:
+        # We use the image loader as defined above
         arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
-
-
 
 
     ### ============= TRAINING =============  ###
     val_losses = []
     val_roc = []
-    min_loss=1e4
     for epoch in range(args.logistic_epochs):
-        loss_epoch, accuracy_epoch = train(
-            args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer
-        )
+
+        # Train for 1 epoch
+        loss_epoch, accuracy_epoch = train(args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer)
 
         writer.add_scalar("loss/train", loss_epoch / len(arr_train_loader), epoch)
 
-        
-
+        # Evaluate on validation set
         if (epoch+1) % args.evaluate_every == 0:
             # evaluate
-            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(
-                args, arr_val_loader, extractor, model, criterion, optimizer
-            )
+            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, arr_val_loader, extractor, model, criterion, optimizer)
             val_losses.append(val_loss)
 
-            # COMPUTE ROCAUC
+            # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
+            # If we use a tile-level prediciton, group and mean create a fraction prediction
             val_data = pd.DataFrame(data={'patient': val_patients, 'labels': val_labels, 'preds': val_preds})
             dfgroup = val_data.groupby(['patient']).mean()
             labels = dfgroup['labels'].values
@@ -520,16 +452,20 @@ def main(_run, _log):
 
             args.current_epoch = epoch+1
 
+            # Save model with each evaluation
             if extractor:
+                # If we do not have an extractor, e.g. when we use precomputed features
                 save_model(args, extractor, None, prepend='extractor_')
+            # Save classification model, which is the primary model being trained here
             save_model(args, model, None, prepend='classifier_')
-
+        
             print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\t Val Loss: {val_loss / len(arr_val_loader)}\t Accuracy: {val_accuracy / len(arr_val_loader)}\t ROC AUC: {rocauc}"
+            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | \
+                Epoch [{epoch+1}/{args.logistic_epochs}]\t \
+                    Val Loss: {val_loss / len(arr_val_loader)}\t \
+                        Accuracy: {val_accuracy / len(arr_val_loader)}\t \
+                            ROC AUC: {rocauc}"
             )
-
-            
-                
 
     ### ============= TESTING =============  ###
 
@@ -562,7 +498,6 @@ def main(_run, _log):
 
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     writer.add_scalar("rocauc/test", rocauc)
-
 
     print(
         f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
