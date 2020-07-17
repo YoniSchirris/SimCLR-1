@@ -30,6 +30,7 @@ def main(_run, _log):
 
     # Get a pretrained deepmil classifier
     classifier, _, _ = load_model(args, None, reload_model=False, model_type=args.classification_head)
+    classifier = classifier.to(args.device)
 
     for step, data in enumerate(train_loader):
           
@@ -52,13 +53,10 @@ def main(_run, _log):
         # The saved feature vectors have the same name as the images
         # The aggregated feature vector takes the same dataloader, groups by patient, and stacks them
         # So this SHOULD be the right order...
-        print(patient)
-        print(f"shape of a: {A.flatten().detach().numpy().shape}")
-        print(f"{len(original_labels[original_labels['patient_id']==patient].index)}")
 
-        original_labels.loc[original_labels['patient_id']==patient, 'attention'] = A.flatten().detach().numpy()
-        original_labels.loc[original_labels['patient_id']==patient, 'dMSIdA'] = dMSIdA.flatten().detach().numpy()
-        original_labels.loc[original_labels['patient_id']==patient, 'a_dMSIdA'] = (A.flatten()*dMSIdA.flatten()).detach().numpy()
+        original_labels.loc[original_labels['patient_id']==patient, 'attention'] = A.flatten().detach().cpu().numpy()
+        original_labels.loc[original_labels['patient_id']==patient, 'dMSIdA'] = dMSIdA.flatten().detach().cpu().numpy()
+        original_labels.loc[original_labels['patient_id']==patient, 'a_dMSIdA'] = (A.flatten()*dMSIdA.flatten()).detach().cpu().numpy()
 
     # Save the labels to data.csv
     # save it in the same dir as data.csv, but as data_{run_id}.csv
