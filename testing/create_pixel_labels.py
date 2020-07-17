@@ -61,6 +61,7 @@ def main(_run, _log):
     # Save the labels to data.csv
     # save it in the same dir as data.csv, but as data_{run_id}.csv
     run_id = args.out_dir.split('/')[-1] # "./logs/pretrain/<id>"
+    original_labels = original_labels.dropna() # Drop the prediction on the validation set
     original_labels.to_csv(os.path.join(args.path_to_msi_data, f'data_{run_id}.csv'))
 
   
