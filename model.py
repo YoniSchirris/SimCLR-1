@@ -2,9 +2,10 @@ import os
 import torch
 import torchvision.models as models
 from modules import SimCLR, LARS, BYOL
+from modules.deepmil import Attention
 
 
-def load_model(args, loader, reload_model=False, model_type='simclr'):
+def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''):
     #TODO Loader is not used
 
     possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenet-v1_x1_0': models.shufflenet_v2_x1_0}
@@ -53,6 +54,17 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
             image_size = 224,
             hidden_layer='avgpool'
         )
+    elif model_type == 'deepmil':
+        #TODO Currently only works for resnet18 backend
+        model = Attention(hidden_dim=512)
+        if reload_model:
+            model_fp = os.path.join(
+                args.model_path, f"classifier_checkpoint_{args.epoch_num}.tar"
+            )
+            print(f'### Loading model from: {model_fp} ###')
+            model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+
+
     else:
         raise NotImplementedError
 
@@ -70,7 +82,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr'):
             exclude_from_weight_decay=["batch_normalization", "bias"],
         )
 
-        # "decay the learning rate with the cosine decay schedule without restarts"
+        # "decay the learning rate with the cosine decay schedule without restarts" 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, args.epochs, eta_min=0, last_epoch=-1
         )
