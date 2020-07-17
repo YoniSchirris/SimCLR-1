@@ -211,7 +211,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
     return loss_epoch, accuracy_epoch, labels, preds, patients
 
 
-def get_precomputed_dataloader(args, run_id, train_sampler, val_sampler):
+def get_precomputed_dataloader(args, run_id):
     print(f"### Loading precomputed feature vectors from run id:  {run_id} ####")
 
     assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
@@ -404,7 +404,7 @@ def main(_run, _log):
             infer_and_save(loader=test_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             
             # Overwriting previous variable names to reduce memory load
-            train_loader, val_loader, test_loader = get_precomputed_dataloader(args, run_id, train_sampler, val_sampler)
+            train_loader, val_loader, test_loader = get_precomputed_dataloader(args, run_id)
 
             arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
 
@@ -415,7 +415,7 @@ def main(_run, _log):
         print(f"Removing SIMCLR model from memory, as we use precomputed features..")
         del extractor
         extractor = None
-        arr_train_loader, arr_val_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id, train_sampler, val_sampler)
+        arr_train_loader, arr_val_loader, arr_test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
     else:
         # We use the image loader as defined above
         arr_train_loader, arr_val_loader, arr_test_loader = train_loader, val_loader, test_loader
