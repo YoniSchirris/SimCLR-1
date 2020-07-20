@@ -21,6 +21,7 @@ from modules.Splitter import split_indices_by_patient, split_indices, get_train_
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 from msidata.save_feature_vectors import infer_and_save
 from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDataset
+from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 
 import pandas as pd
 import time
@@ -321,7 +322,7 @@ def main(_run, _log):
     os.makedirs(tb_dir)
     writer = SummaryWriter(log_dir=tb_dir)
 
-    
+
 
     if args.dataset == "msi-kather":
         train_dataset = dataset_msi(
@@ -337,7 +338,19 @@ def main(_run, _log):
 
         train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
         train_sampler = SubsetRandomSampler(train_indices)
-        val_sampler = SubsetRandomSampler(val_indices)    
+        val_sampler = SubsetRandomSampler(val_indices)   
+    elif args.dataset == "msi-tcga":
+        args.data_pretrain_fraction=1    
+        assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
+        assert ('root_dir_for_tcga_tiles' in vars(args).keys()), "Please provide the root dir for the tcga tiles"
+        train_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=test_transform)     
+        test_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=test_transform)
     else:
         raise NotImplementedError
 
