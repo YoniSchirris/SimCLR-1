@@ -34,6 +34,10 @@ import datetime
 
 
 def infer_and_save(loader, context_model, device, append_with='', model_type=None):
+    if isinstance(train_dataset, TiledTCGADataset):
+        extension='.jpg'
+    elif isinstance(train_dataset, PreProcessedMSIDataset):
+        extension='.png'
     for step, (x, y, patient, img_names) in enumerate(loader):
         x = x.to(device)
         # get encoding
@@ -52,7 +56,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
         h = h.detach()
 
         for i, img_name in enumerate(img_names):
-            torch.save(h[i].clone(), img_name.replace('.png', f'{append_with}.pt'))
+            torch.save(h[i].clone(), img_name.append(extension, f'{append_with}.pt'))
 
         if step % 20 == 0:
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
