@@ -335,10 +335,6 @@ def main(_run, _log):
             transform=TransformsSimCLR(size=224).test_transform, 
             data_fraction=args.data_testing_test_fraction,
             seed=args.seed)
-
-        train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
-        train_sampler = SubsetRandomSampler(train_indices)
-        val_sampler = SubsetRandomSampler(val_indices)   
     elif args.dataset == "msi-tcga":
         args.data_pretrain_fraction=1    
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
@@ -355,6 +351,11 @@ def main(_run, _log):
             )
     else:
         raise NotImplementedError
+
+    # Get the train and validation samplers
+    train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)  
 
 
     # Get the extractor
