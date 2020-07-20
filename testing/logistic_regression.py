@@ -1,3 +1,4 @@
+import random
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -25,6 +26,7 @@ import pandas as pd
 import time
 import datetime
 import os
+import json
 
 from sklearn import metrics
 
@@ -129,10 +131,18 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             loss_epoch += train_loss
             error, _ = model.calculate_classification_error(y, Y_hat)
             acc = 1. - error
+
+        if not args.freeze_encoder:
+            previous_weights_of_last_layer = list(extractor.state_dict().values())[-1]
         
         accuracy_epoch += acc
         loss.backward()         # Depending on the setup: Computes gradients for classifier and possibly extractor
         optimizer.step()        # Can update both the classifier and the extractor, depending on the options
+
+        if not args.freeze_encoder:
+            new_weights_of_last_layer = list(extractor.state_dict().values())[-1]
+
+            assert(not torch.eq(new_weights_of_last_layer, previous_weights_of_last_layer).all()), "The weights are not being updated!"
 
     return loss_epoch, accuracy_epoch
 
@@ -227,7 +237,8 @@ def get_precomputed_dataloader(args, run_id):
         data_fraction=1,
         sampling_strategy=sampling_strategy,
         append_img_path_with=f'_{run_id}',
-        tensor_per_patient=args.load_patient_level_tensors
+        tensor_per_patient=args.load_patient_level_tensors,
+        seed=args.seed
         
     )
     test_dataset = PreProcessedMSIFeatureDataset(
@@ -236,7 +247,8 @@ def get_precomputed_dataloader(args, run_id):
         data_fraction=1,
         sampling_strategy=sampling_strategy,
         append_img_path_with=f'_{run_id}',
-        tensor_per_patient=args.load_patient_level_tensors
+        tensor_per_patient=args.load_patient_level_tensors,
+        seed=args.seed
     )
 
     train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
@@ -269,28 +281,59 @@ def get_precomputed_dataloader(args, run_id):
 
     return train_loader, val_loader, test_loader
 
+def set_seed(seed):
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+
+def write_hparams(writer, config, metric):
+    config_vars = vars(config)
+    for key in config_vars.keys():
+        if isinstance(config_vars[key], bool):
+            if config_vars[key]:
+                config_vars[key] = 1
+            else:
+                config_vars[key] = 0
+    
+    del config_vars['device']
+
+    writer.add_hparams(config_vars, metric)
 
 @ex.automain
 def main(_run, _log):
     args = argparse.Namespace(**_run.config)
     args = post_config_hook(args, _run)
-
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    set_seed(args.seed)
+
+    if 'train_extractor_on_generated_labels' in vars(args).keys():
+        if args.train_extractor_on_generated_labels:
+            assert('generated_labels_id' in vars(args).keys()), "Please set the ID of the run that generated the labels"
+            assert(not args.freeze_encoder), "If we want to finetune, we should not freeze the encoder"
+            assert(not args.precompute_features), "If we want to finetune, we should not precompute any features. We should run the images through the encoder"
+            assert(args.classification_head == 'logistic'), "We want to do tilewise predictions with our new tile-level labels!"
+            with open(f'./logs/{args.generated_labels_id}/config.json') as f:
+                config_of_label_creation = json.load(f)
+            assert(args.seed == config_of_label_creation['seed']), f"Current seed: {args.seed}. Seed during label creation of run {args.generated_labels_id}: {config_of_label_creation['seed']}. Ensure they are equal to get the same train-test split"
 
     tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
     os.makedirs(tb_dir)
     writer = SummaryWriter(log_dir=tb_dir)
 
+    
 
     if args.dataset == "msi-kather":
         train_dataset = dataset_msi(
             root_dir=args.path_to_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
-            data_fraction=args.data_testing_train_fraction)
+            data_fraction=args.data_testing_train_fraction,
+            seed=args.seed)
         test_dataset = dataset_msi(
             root_dir=args.path_to_test_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
-            data_fraction=args.data_testing_test_fraction)
+            data_fraction=args.data_testing_test_fraction,
+            seed=args.seed)
 
         train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
         train_sampler = SubsetRandomSampler(train_indices)
@@ -498,6 +541,10 @@ def main(_run, _log):
 
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     writer.add_scalar("rocauc/test", rocauc)
+
+    write_hparams(writer, args, {'hparam/rocauc': rocauc })
+
+    _run.log_scalar('test/rocauc', rocauc, 0)
 
     print(
         f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"

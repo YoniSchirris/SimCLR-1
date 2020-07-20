@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with='', tensor_per_patient=False):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with='', tensor_per_patient=False, seed=42):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -50,6 +50,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
                 tiles are batched. When strategy is 'patient', it will always take all tiles of a single patient. This is
                 primarily used for MIL training
         """
+        self.seed = seed
         # self.labels = pd.read_csv(csv_file)
         self.balance_classes = balance_classes
         self.sampling_strategy = sampling_strategy
@@ -130,7 +131,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
         if self.sampling_strategy=='tile' or (self.sampling_strategy=='patient' and self.tensor_per_patient):
             # Randomly sample tiles to reduce the amount of data
-            subsample_df = raw_df.sample(frac=data_fraction, random_state=42).reset_index(drop=True) # NOTE: .sample() shuffles, even when frac=1
+            subsample_df = raw_df.sample(frac=data_fraction, random_state=self.seed).reset_index(drop=True) # NOTE: .sample() shuffles, even when frac=1
         elif self.sampling_strategy=='patient' and not self.tensor_per_patient:
             # Randomly sample patients to reduce the amount of data
             # change to sample patients
@@ -138,7 +139,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
             patients = raw_df['patient_id'].unique()
             subsample_patients = np.random.choice(patients, int(data_fraction*len(patients)))
             subsample_df = raw_df[raw_df['patient_id'].isin(subsample_patients)]
-            subsample_df = raw_df.sample(frac=data_fraction, random_state=42).reset_index(drop=True) # NOTE: .sample() shuffles, even when frac=1
+            subsample_df = raw_df.sample(frac=data_fraction, random_state=self.seed).reset_index(drop=True) # NOTE: .sample() shuffles, even when frac=1
         else:
             raise NotImplementedError()
 

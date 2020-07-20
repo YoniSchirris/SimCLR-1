@@ -21,7 +21,7 @@ import time
 class PreProcessedMSIDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1):
+    def __init__(self, root_dir, transform=None, data_fraction=1, seed=42):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -42,7 +42,7 @@ class PreProcessedMSIDataset(Dataset):
 
         self.root_dir = root_dir
         self.setup()
-        self.labels = pd.read_csv(self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=42).reset_index(drop=True)
+        self.labels = pd.read_csv(self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=seed).reset_index(drop=True)
         self.transform = transform
 
     def __len__(self, val=False):
