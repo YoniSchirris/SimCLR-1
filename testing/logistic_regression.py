@@ -346,11 +346,13 @@ def main(_run, _log):
         train_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=test_transform)     
+            transform=TransformsSimCLR(size=224).test_transform
+            )     
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=test_transform)
+            transform=TransformsSimCLR(size=224).test_transform
+            )
     else:
         raise NotImplementedError
 
