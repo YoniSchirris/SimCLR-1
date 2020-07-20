@@ -79,7 +79,13 @@ class TiledTCGADataset(Dataset):
                                 'jpeg',
                                 f'tile{tile_num}{self.append_with}'
                                 )
-        tile = io.imread(img_name)
+        try:
+            tile = io.imread(img_name)
+        except ValueError as e:
+            print(f"=============== Error: {e}. Corrupt image file: {img_name} ================")
+            import sys
+            sys.exit()
+
 
         if self.transform:
             tile= self.transform(tile)
