@@ -260,14 +260,18 @@ def get_precomputed_dataloader(args, run_id):
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=None,
             precomputed=True,
-            precomputed_from_run=run_id
+            precomputed_from_run=run_id,
+            sampling_strategy=sampling_strategy,
+            tensor_per_patient=args.load_patient_level_tensors
             )     
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=None,
             precomputed=True,
-            precomputed_from_run=run_id
+            precomputed_from_run=run_id,
+            sampling_strategy=sampling_strategy,
+            tensor_per_patient=args.load_patient_level_tensors
             )
 
     train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)

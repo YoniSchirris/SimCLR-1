@@ -24,7 +24,7 @@ class TiledTCGADataset(Dataset):
     """Dataset class for tiled WSIs from TCGA
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
-    def __init__(self, csv_file, root_dir, transform=None, precomputed=False, precomputed_from_run=None):
+    def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, precomputed=False, precomputed_from_run=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -33,7 +33,6 @@ class TiledTCGADataset(Dataset):
                 on a sample.
         """
         # self.labels = pd.read_csv(csv_file)
-
         if precomputed:
             if precomputed_from_run:
                 self.append_with=f'_{precomputed_from_run}.pt'
@@ -41,6 +40,9 @@ class TiledTCGADataset(Dataset):
                 self.append_with=f'.pt'
         else:
             self.append_with='.jpg'
+
+        self.sampling_strategy=sampling_strategy        # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
+        self.tensor_per_patient=tensor_per_patient      # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
 
         self.csv_file = csv_file
         self.root_dir = root_dir
