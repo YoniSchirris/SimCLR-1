@@ -232,25 +232,43 @@ def get_precomputed_dataloader(args, run_id):
     else:
         sampling_strategy='tile'
 
-    train_dataset = PreProcessedMSIFeatureDataset(
-        root_dir=args.path_to_msi_data, 
-        transform=None, 
-        data_fraction=1,
-        sampling_strategy=sampling_strategy,
-        append_img_path_with=f'_{run_id}',
-        tensor_per_patient=args.load_patient_level_tensors,
-        seed=args.seed
-        
-    )
-    test_dataset = PreProcessedMSIFeatureDataset(
-        root_dir=args.path_to_test_msi_data, 
-        transform=None, 
-        data_fraction=1,
-        sampling_strategy=sampling_strategy,
-        append_img_path_with=f'_{run_id}',
-        tensor_per_patient=args.load_patient_level_tensors,
-        seed=args.seed
-    )
+    if args.dataset=='msi-kather':
+
+        train_dataset = PreProcessedMSIFeatureDataset(
+            root_dir=args.path_to_msi_data, 
+            transform=None, 
+            data_fraction=1,
+            sampling_strategy=sampling_strategy,
+            append_img_path_with=f'_{run_id}',
+            tensor_per_patient=args.load_patient_level_tensors,
+            seed=args.seed
+            
+        )
+        test_dataset = PreProcessedMSIFeatureDataset(
+            root_dir=args.path_to_test_msi_data, 
+            transform=None, 
+            data_fraction=1,
+            sampling_strategy=sampling_strategy,
+            append_img_path_with=f'_{run_id}',
+            tensor_per_patient=args.load_patient_level_tensors,
+            seed=args.seed
+        )
+
+    elif args.dataset == 'msi-tcga':
+        train_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=None,
+            precomputed=True,
+            precomputed_from_run=run_id
+            )     
+        test_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=None,
+            precomputed=True,
+            precomputed_from_run=run_id
+            )
 
     train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
     train_sampler = SubsetRandomSampler(train_indices)

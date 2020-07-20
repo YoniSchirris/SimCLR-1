@@ -24,7 +24,7 @@ class TiledTCGADataset(Dataset):
     """Dataset class for tiled WSIs from TCGA
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, csv_file, root_dir, transform=None, precomputed=False, precomputed_from_run=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -33,6 +33,14 @@ class TiledTCGADataset(Dataset):
                 on a sample.
         """
         # self.labels = pd.read_csv(csv_file)
+
+        if precomputed:
+            if precomputed_from_run:
+                self.append_with=f'_{precomputed_from_run}.pt'
+            else:
+                self.append_with=f'.pt'
+        else:
+            self.append_with='.jpg'
 
         self.csv_file = csv_file
         self.root_dir = root_dir
@@ -67,7 +75,7 @@ class TiledTCGADataset(Dataset):
         img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                 dot_id,
                                 'jpeg',
-                                f'tile{tile_num}.jpg'
+                                f'tile{tile_num}{self.append_with}'
                                 )
         tile = io.imread(img_name)
 
