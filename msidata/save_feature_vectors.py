@@ -56,7 +56,9 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
         h = h.detach()
 
         for i, img_name in enumerate(img_names):
-            torch.save(h[i].clone(), img_name.replace(extension, f'{append_with}.pt'))
+            tensor_name = img_name.replace(extension, f'{append_with}.pt')
+            assert(tensor_name != img_name), f"You are about to overwrite the original image with the tensor. You don't want this. Extension is set to {extension}, while the filename is {img_name}"
+            torch.save(h[i].clone(), tensor_name)
 
         if step % 20 == 0:
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
