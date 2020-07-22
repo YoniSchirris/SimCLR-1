@@ -34,10 +34,12 @@ import datetime
 
 
 def infer_and_save(loader, context_model, device, append_with='', model_type=None):
-    if isinstance(train_dataset, TiledTCGADataset):
+    if isinstance(loader.dataset, TiledTCGADataset):
         extension='.jpg'
-    elif isinstance(train_dataset, PreProcessedMSIDataset):
+    elif isinstance(loader.dataset, PreProcessedMSIDataset):
         extension='.png'
+    else:
+        raise NotImplementedError
     for step, (x, y, patient, img_names) in enumerate(loader):
         x = x.to(device)
         # get encoding
