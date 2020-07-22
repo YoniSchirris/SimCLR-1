@@ -333,12 +333,16 @@ def main(_run, _log):
     if 'train_extractor_on_generated_labels' in vars(args).keys():
         if args.train_extractor_on_generated_labels:
             assert('generated_labels_id' in vars(args).keys()), "Please set the ID of the run that generated the labels"
+            assert('generated_label' in vars(args).keys()), "Please set the label you want to use"
+            assert(args.generated_label != 'label'), "Please set a non-standard label, otherwise we're not doing anything interesting"
             assert(not args.freeze_encoder), "If we want to finetune, we should not freeze the encoder"
             assert(not args.precompute_features), "If we want to finetune, we should not precompute any features. We should run the images through the encoder"
             assert(args.classification_head == 'logistic'), "We want to do tilewise predictions with our new tile-level labels!"
             with open(f'./logs/{args.generated_labels_id}/config.json') as f:
                 config_of_label_creation = json.load(f)
             assert(args.seed == config_of_label_creation['seed']), f"Current seed: {args.seed}. Seed during label creation of run {args.generated_labels_id}: {config_of_label_creation['seed']}. Ensure they are equal to get the same train-test split"
+
+
 
     tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
     os.makedirs(tb_dir)
@@ -351,12 +355,18 @@ def main(_run, _log):
             root_dir=args.path_to_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
             data_fraction=args.data_testing_train_fraction,
-            seed=args.seed)
+            seed=args.seed,
+            label=args.generated_label if args.train_extractor_on_generated_labels else 'label',
+            load_labels_from_run=args.generated_labels_id if args.train_extractor_on_generated_labels else ''
+        )
         test_dataset = dataset_msi(
             root_dir=args.path_to_test_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
             data_fraction=args.data_testing_test_fraction,
-            seed=args.seed)
+            seed=args.seed,
+            label=args.generated_label if args.train_extractor_on_generated_labels else 'label',
+            load_labels_from_run=args.generated_labels_id if args.train_extractor_on_generated_labels else ''
+        )
     elif args.dataset == "msi-tcga":
         args.data_pretrain_fraction=1    
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
@@ -367,7 +377,7 @@ def main(_run, _log):
             transform=TransformsSimCLR(size=224).test_transform
             )     
         test_dataset = dataset_tcga(
-            csv_file=args.path_to_msi_data, 
+            csv_file=args.path_to_test_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=TransformsSimCLR(size=224).test_transform
             )
