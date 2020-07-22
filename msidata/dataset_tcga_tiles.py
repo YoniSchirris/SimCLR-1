@@ -79,19 +79,21 @@ class TiledTCGADataset(Dataset):
                                 'jpeg',
                                 f'tile{tile_num}{self.append_with}'
                                 )
-        try:
-            tile = io.imread(img_name)
-        except ValueError as e:
-            print(f"=============== Error: {e}. Corrupt image file: {img_name} ================")
-            import sys
-            sys.exit()
 
-
-        if self.transform:
-            tile= self.transform(tile)
+        if self.precomputed:
+            tile = torch.load(img_name, map_location='cpu')
         else:
-            tile= tile.transpose((2, 0, 1))
-            tile= torch.from_numpy(tile).float()
-            
-        sample= (tile, patient_id, label, img_name)
+            try:
+                tile = io.imread(img_name)
+            except ValueError as e:
+                print(f"=============== Error: {e}. Corrupt image file: {img_name} ================")
+                import sys
+                sys.exit()
+            if self.transform:
+                tile= self.transform(tile)
+            else:
+                tile= tile.transpose((2, 0, 1))
+                tile= torch.from_numpy(tile).float()
+
+        sample = (tile, patient_id, label, img_name)
         return sample
