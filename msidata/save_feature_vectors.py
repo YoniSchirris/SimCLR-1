@@ -24,6 +24,9 @@ from modules import LogisticRegression
 from modules.transformations import TransformsSimCLR
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
+from msidata.dataset_msi import PreProcessedMSIDataset
+from msidata.dataset_tcga_tiles import TiledTCGADataset
+
 
 import os
 
