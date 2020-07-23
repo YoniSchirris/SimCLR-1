@@ -69,19 +69,38 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
 
 
-def aggregate_patient_vectors(root_dir, append_with=''):
+def aggregate_patient_vectors(args, root_dir, append_with=''):
     print(f"## Aggregating vectors per patient in {root_dir}")
-    data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
+    if args.dataset == "msi-kather":
+        data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
+        patient_column = 'patient_id'
+        extension='.png'
+    elif args.dataset == "msi-tcga":
+        data = pd.read_csv(root_dir) # csv is given as root dir
+        patient_column = 'case'
+        data['img'] = data.apply(lambda x: os.path.join(args.root_dir_for_tcga_tiles, f"case-{x['case']}",
+                                x['dot_id'],
+                                'jpeg',
+                                f"tile{x['num']}{append_with}"
+                                ))
+        extension='.jpg'
 
-    for patient_id in data['patient_id'].unique():
-        relative_img_paths = data[data['patient_id']==patient_id]['img']
-        vectors = torch.stack([torch.load(os.path.join(root_dir, vector_path.replace('.png',f'{append_with}.pt')), map_location='cpu') for vector_path in relative_img_paths])
+    
 
-        relative_img_paths_dirs = ['/'.join(path.split('/')[:-1]) for path in relative_img_paths]
+    for patient_id in data[patient_column].unique():
+    
+        relative_img_paths = data[data[patient_column]==patient_id]['img']
+        
+        vectors = torch.stack([torch.load(os.path.join(root_dir, vector_path.replace(extension,f'{append_with}.pt')), map_location='cpu') for vector_path in relative_img_paths])
 
-        relative_dir = set(relative_img_paths_dirs)
-
-        assert len(relative_dir)==1, f"A single patient have several labels! see {relative_img_paths}"
+        if args.dataset == 'msi-kather':
+            relative_img_paths_dirs = ['/'.join(path.split('/')[:-1]) for path in relative_img_paths]
+            relative_dir = set(relative_img_paths_dirs)
+            assert len(relative_dir)==1, f"A single patient have several labels! see {relative_img_paths}"
+        elif args.dataset == 'msi-tcga':
+            relative_img_paths_dirs = ['/'.join(path.split('/')[:-2]) for path in relative_img_paths] # saving them in the case dir, not the dot_id dir
+            relative_dir = set(relative_img_paths_dirs)
+            assert len(relative_dir)==1, f"A single patient presumably has different case ids ! see {relative_img_paths}"
 
         relative_dir = relative_img_paths_dirs[0] # Fine, since all are the same
 
@@ -107,18 +126,39 @@ def main(_run, _log):
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Load the dataset. sample_strategy is patient, meaning we get all tiles for a patient in a single _get
+    if args.dataset == "msi-kather":
     train_dataset = dataset_msi(
-            root_dir=args.path_to_msi_data, 
-            transform=TransformsSimCLR(size=224).test_transform, 
-            data_fraction=args.data_create_feature_vectors_fraction
-            )
-
+        root_dir=args.path_to_msi_data, 
+        transform=TransformsSimCLR(size=224).test_transform, 
+        data_fraction=args.data_testing_train_fraction,
+        seed=args.seed,
+        label=label,
+        load_labels_from_run=load_labels_from_run
+    )
     test_dataset = dataset_msi(
-            root_dir=args.path_to_test_msi_data, 
-            transform=TransformsSimCLR(size=224).test_transform, 
-            data_fraction=args.data_create_feature_vectors_fraction
+        root_dir=args.path_to_test_msi_data, 
+        transform=TransformsSimCLR(size=224).test_transform, 
+        data_fraction=args.data_testing_test_fraction,
+        seed=args.seed,
+        label=label,
+        load_labels_from_run=load_labels_from_run
+    )
+    elif args.dataset == "msi-tcga":
+        args.data_pretrain_fraction=1    
+        assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
+        assert ('root_dir_for_tcga_tiles' in vars(args).keys()), "Please provide the root dir for the tcga tiles"
+        train_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=TransformsSimCLR(size=224).test_transform
+            )     
+        test_dataset = dataset_tcga(
+            csv_file=args.path_to_test_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=TransformsSimCLR(size=224).test_transform
             )
-
+    else:
+        raise NotImplementedError
 
     train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -148,8 +188,8 @@ def main(_run, _log):
 
     if args.use_precomputed_features:
         run_id = args.use_precomputed_features_id
-    aggregate_patient_vectors(root_dir=args.path_to_msi_data, append_with=f'_{run_id}')
-    aggregate_patient_vectors(root_dir=args.path_to_test_msi_data, append_with=f'_{run_id}')
+    aggregate_patient_vectors(args, root_dir=args.path_to_msi_data, append_with=f'_{run_id}')
+    aggregate_patient_vectors(args, root_dir=args.path_to_test_msi_data, append_with=f'_{run_id}')
 
 
     
