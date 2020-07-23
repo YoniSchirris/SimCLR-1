@@ -348,7 +348,16 @@ def main(_run, _log):
     os.makedirs(tb_dir)
     writer = SummaryWriter(log_dir=tb_dir)
 
-
+    if 'train_extractor_on_generated_labels' in vars(args).keys():
+        if args.train_extractor_on_generated_labels:
+            label = args.generated_label
+            load_labels_from_run = args.generated_labels_id
+        else:
+            label = 'label'
+            load_labels_from_run=''
+    else:
+        label = 'label'
+        load_labels_from_run=''
 
     if args.dataset == "msi-kather":
         train_dataset = dataset_msi(
@@ -356,16 +365,16 @@ def main(_run, _log):
             transform=TransformsSimCLR(size=224).test_transform, 
             data_fraction=args.data_testing_train_fraction,
             seed=args.seed,
-            label=args.generated_label if args.train_extractor_on_generated_labels else 'label',
-            load_labels_from_run=args.generated_labels_id if args.train_extractor_on_generated_labels else ''
+            label=label,
+            load_labels_from_run=load_labels_from_run
         )
         test_dataset = dataset_msi(
             root_dir=args.path_to_test_msi_data, 
             transform=TransformsSimCLR(size=224).test_transform, 
             data_fraction=args.data_testing_test_fraction,
             seed=args.seed,
-            label=args.generated_label if args.train_extractor_on_generated_labels else 'label',
-            load_labels_from_run=args.generated_labels_id if args.train_extractor_on_generated_labels else ''
+            label=label,
+            load_labels_from_run=load_labels_from_run
         )
     elif args.dataset == "msi-tcga":
         args.data_pretrain_fraction=1    
