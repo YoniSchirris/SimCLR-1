@@ -26,6 +26,7 @@ from modules.transformations import TransformsSimCLR
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 from msidata.dataset_msi import PreProcessedMSIDataset
 from msidata.dataset_tcga_tiles import TiledTCGADataset
+from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 
 
 import os
@@ -84,7 +85,7 @@ def aggregate_patient_vectors(args, root_dir, append_with=''):
                                 x['dot_id'],
                                 'jpeg',
                                 f"tile{x['num']}{extension}"
-                                ))
+                                ), axis=1)
 
     
 
@@ -128,7 +129,7 @@ def main(_run, _log):
 
     # Load the dataset. sample_strategy is patient, meaning we get all tiles for a patient in a single _get
     if args.dataset == "msi-kather":
-    train_dataset = dataset_msi(
+        train_dataset = dataset_msi(
         root_dir=args.path_to_msi_data, 
         transform=TransformsSimCLR(size=224).test_transform, 
         data_fraction=args.data_testing_train_fraction,
@@ -136,7 +137,7 @@ def main(_run, _log):
         label=label,
         load_labels_from_run=load_labels_from_run
     )
-    test_dataset = dataset_msi(
+        test_dataset = dataset_msi(
         root_dir=args.path_to_test_msi_data, 
         transform=TransformsSimCLR(size=224).test_transform, 
         data_fraction=args.data_testing_test_fraction,
