@@ -21,7 +21,7 @@ import time
 class PreProcessedMSIDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, seed=42):
+    def __init__(self, root_dir, transform=None, data_fraction=1, seed=42, label='label', load_labels_from_run=''):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -31,6 +31,10 @@ class PreProcessedMSIDataset(Dataset):
         """
         # self.labels = pd.read_csv(csv_file)
 
+        self.label = label
+        self.transform = transform
+        self.root_dir = root_dir
+
         if 'msidata' in root_dir:
             # set up stuff for MSI data
             self.label_classes = {'MSS': 0, 'MSIMUT': 1}
@@ -39,11 +43,13 @@ class PreProcessedMSIDataset(Dataset):
             # set up stuff for tissue data
             self.label_classes = {'ADIMUC': 0, 'STRMUS': 0, 'TUMSTU': 1}
             self.task = 'cancer'
-
-        self.root_dir = root_dir
+        
         self.setup()
-        self.labels = pd.read_csv(self.root_dir + 'data.csv').sample(frac=data_fraction, random_state=seed).reset_index(drop=True)
-        self.transform = transform
+        path_to_dataset = self.root_dir + ('data.csv' if not load_labels_from_run else f'data_{load_labels_from_run}.csv')
+        print(f"Loading data from {path_to_dataset}")
+        self.labels = pd.read_csv(path_to_dataset).sample(frac=data_fraction, random_state=seed).reset_index(drop=True)
+
+        assert(self.label in self.labels.columns), f"The requested label: {self.label} is not available in the current dataset from {path_to_dataset}. The dataset has the following columns: {list(self.labels.columns)}"
 
     def __len__(self, val=False):
         # full_data_len = len([name for label in self.label_classes.keys() for name in os.listdir(f'{self.root_dir}/{label}') if
@@ -59,7 +65,7 @@ class PreProcessedMSIDataset(Dataset):
         t2=time.time()
 
         row = self.labels.iloc[idx]
-        label = row[2]
+        label = row[self.label]
         im_rel_path = row[1]
 
         if self.task == 'msi':
