@@ -34,6 +34,7 @@ class TiledTCGADataset(Dataset):
         """
         # self.labels = pd.read_csv(csv_file)
         self.precomputed=precomputed
+        self.precomputed_from_run = precomputed_from_run
         if precomputed:
             if precomputed_from_run:
                 self.append_with=f'_{precomputed_from_run}.pt'
@@ -50,6 +51,10 @@ class TiledTCGADataset(Dataset):
         with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/kather/kather_msi_dot_id_to_tcga_id.json') as f:
             self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
+
+        if self.tensor_per_patient:
+            self.labels = self.labels.groupby('case').mean() # We end up with a single row per patient, and the mean of all labels, which is the label
+
         self.transform = transform
 
     def __len__(self):
@@ -75,13 +80,17 @@ class TiledTCGADataset(Dataset):
 
         # label= self.labels.at[idx, "msi"]
 
-        img_name = os.path.join(self.root_dir, f'case-{case_id}',
-                                dot_id,
-                                'jpeg',
-                                f'tile{tile_num}{self.append_with}'
-                                )
+        if not self.tensor_per_patient:
+            img_name = os.path.join(self.root_dir, f'case-{case_id}',
+                                    dot_id,
+                                    'jpeg',
+                                    f'tile{tile_num}{self.append_with}'
+                                    )
+        else:
+            img_name = os.path.join(self.root_dir, f'case-{case_id}'),
+                                    f"pid_{case_id}_tile_vectors_extractor_{}.pt")
 
-        if self.precomputed:
+        if self.precomputed or self.tensor_per_patient:
             tile = torch.load(img_name, map_location='cpu')
         else:
             try:
