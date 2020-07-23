@@ -78,12 +78,13 @@ def aggregate_patient_vectors(args, root_dir, append_with=''):
     elif args.dataset == "msi-tcga":
         data = pd.read_csv(root_dir) # csv is given as root dir
         patient_column = 'case'
+        extension='.jpg'
+
         data['img'] = data.apply(lambda x: os.path.join(args.root_dir_for_tcga_tiles, f"case-{x['case']}",
                                 x['dot_id'],
                                 'jpeg',
-                                f"tile{x['num']}{append_with}"
+                                f"tile{x['num']}{extension}"
                                 ))
-        extension='.jpg'
 
     
 
@@ -98,7 +99,7 @@ def aggregate_patient_vectors(args, root_dir, append_with=''):
             relative_dir = set(relative_img_paths_dirs)
             assert len(relative_dir)==1, f"A single patient have several labels! see {relative_img_paths}"
         elif args.dataset == 'msi-tcga':
-            relative_img_paths_dirs = ['/'.join(path.split('/')[:-2]) for path in relative_img_paths] # saving them in the case dir, not the dot_id dir
+            relative_img_paths_dirs = ['/'.join(path.split('/')[:-3]) for path in relative_img_paths] # saving them in the case dir, not the dot_id dir
             relative_dir = set(relative_img_paths_dirs)
             assert len(relative_dir)==1, f"A single patient presumably has different case ids ! see {relative_img_paths}"
 
