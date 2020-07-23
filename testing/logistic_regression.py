@@ -93,7 +93,8 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
     accuracy_epoch = 0
     for step, data in enumerate(train_loader):
         optimizer.zero_grad()
-        x, y = data[0].to(args.device), data[1].to(args.device)
+        x =  data[0].to(args.device) 
+        y = data[1].to(args.device)
 
         if not (args.precompute_features or args.use_precomputed_features):
             if args.freeze_encoder:
@@ -139,7 +140,10 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
         accuracy_epoch += acc
         loss.backward()         # Depending on the setup: Computes gradients for classifier and possibly extractor
         optimizer.step()        # Can update both the classifier and the extractor, depending on the options
+        if step % 20 == 0:
+            print(f"Step [{step}/{len(train_loader)}]\t Training...")
 
+  
         if not args.freeze_encoder:
             new_weights_of_last_layer = list(extractor.state_dict().values())[-1]
 
