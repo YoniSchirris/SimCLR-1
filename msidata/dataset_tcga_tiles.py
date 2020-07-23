@@ -33,6 +33,7 @@ class TiledTCGADataset(Dataset):
                 on a sample.
         """
         # self.labels = pd.read_csv(csv_file)
+        self.precomputed=precomputed
         if precomputed:
             if precomputed_from_run:
                 self.append_with=f'_{precomputed_from_run}.pt'
@@ -95,5 +96,5 @@ class TiledTCGADataset(Dataset):
                 tile= tile.transpose((2, 0, 1))
                 tile= torch.from_numpy(tile).float()
 
-        sample = (tile, patient_id, label, img_name)
+        sample = (tile, label, patient_id, img_name)
         return sample
