@@ -19,7 +19,7 @@ from modules.losses.focal_loss import FocalLoss
 from modules.Splitter import split_indices_by_patient, split_indices, get_train_val_indices
 
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
-from msidata.save_feature_vectors import infer_and_save
+from msidata.save_feature_vectors import infer_and_save, aggregate_patient_vectors
 from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDataset
 from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 
@@ -508,6 +508,10 @@ def main(_run, _log):
             infer_and_save(loader=train_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             infer_and_save(loader=val_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
             infer_and_save(loader=test_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
+
+            print("### Aggregating saved feature vectors into patient-level tensors ###")
+            aggregate_patient_vectors(args, root_dir=args.path_to_msi_data, append_with=f'_{run_id}')
+            aggregate_patient_vectors(args, root_dir=args.path_to_test_msi_data, append_with=f'_{run_id}')
             
             # Overwriting previous variable names to reduce memory load
             train_loader, val_loader, test_loader = get_precomputed_dataloader(args, run_id)
