@@ -127,6 +127,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             loss_epoch += loss.item()
 
         elif args.classification_head == 'deepmil':
+            y = y.long() # Might be a float if we use TCGA since we do a groupby.mean() operation
             Y_prob, Y_hat, A = model.forward(x)
             loss = criterion(Y_prob, y)
             train_loss = loss.item()
@@ -204,6 +205,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
 
         elif args.classification_head == 'deepmil':
             with torch.no_grad():
+                y = y.long() # Might be a float when using TCGA data due to groupby.mean() operator
                 Y_prob, Y_hat, A = model.forward(x)
                 loss = criterion(Y_prob, y)
                 train_loss = loss.item()
