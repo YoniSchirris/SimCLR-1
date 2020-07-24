@@ -37,7 +37,10 @@ unsupervised_method: "byol" # "simclr" or "byol"
 save_each_epochs: 1
 projection_hidden: 128      # only used for supervised feature learning
 
-
+# training on generated labels
+train_extractor_on_generated_labels: False
+generated_labels_id: ''
+generated_label: 'label'
 
 # loss options
 optimizer: "Adam" # or LARS (experimental)

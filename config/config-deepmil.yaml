@@ -37,28 +37,26 @@ weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
 temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
 
 # reload options
-reload_model: False
-model_path: "logs/pretrain/41" # set to the directory containing `checkpoint_##.tar` 
-epoch_num: 90 # set to checkpoint number
- 
+reload_model: True
+model_path: "logs/pretrain/test" # set to the directory containing `checkpoint_##.tar`
+epoch_num: 70 # set to checkpoint number
+
 # mixed-precision training
-fp16: False 
+fp16: False
 fp16_opt_level: "O2"
 
 # testing options
-logistic_extractor: 'simclr' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
+logistic_extractor: 'imagenet-resnet50' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
 classification_head: 'deepmil' # or 'logistic' or 'deepmil'
-logistic_batch_size: 1 
+logistic_batch_size: 1
 logistic_epochs: 50
 deepmil_lr: 0.0005
 deepmil_reg: 10.0e-5
 precompute_features: False
-precompute_features_in_memory: False 
+precompute_features_in_memory: False
 use_precomputed_features: True
 use_precomputed_features_id: '61'
 freeze_encoder: True
-evaluate_every: 1
-validation_split: 0.2
 
 use_focal_loss: False
 focal_loss_alpha: 1
