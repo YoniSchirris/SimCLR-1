@@ -6,38 +6,32 @@ start_epoch: 0
 epochs: 100
 
 #Data options
-dataset: "msi-kather" # STL10 / CIFAR10 / 'msi-kather' / 'mci-tga'
-# if msi-kather, path_to_msi_data should be to the directory ..../msidata/crc_dx/train
-# if msi-tcga, path_to_Msi_data should be to the csv file .../tcga/crc_dx/labels_for_.....csv
+dataset: "msi-tcga" # STL10
 #path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 #path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
-root_dir_for_tcga_tiles: "/home/yonis/full-kather-msi-tiles/tiled_data_large/"
 path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
-path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
+path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_test.csv"
+root_dir_for_tcga_tiles: "/home/yonis/full-kather-msi-tiles/tiled_data_large/"
 
 pretrain: True 
 load_patient_level_tensors: True
 
 data_pretrain_fraction: 0.1
 data_testing_balance_training_data: False
-data_testing_train_fraction: 0.6
-data_testing_test_fraction: 0.6
+data_testing_train_fraction: 1
+data_testing_test_fraction: 1
 
-data_create_feature_vectors_fraction: 0.1
+data_create_feature_vectors_fraction: 1
 
 
 # model options
-resnet: "resnet50" # the backbone to be used by SimCLR: resnet18, resnet50, shufflenetv2_x1_0
+resnet: "resnet18" # the backbone to be used by SimCLR: resnet18, resnet50, shufflenetv2_x1_0
 normalize: True
 projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space" only used for 
 
 # supervised or unsupservised learning?
 feature_learning: "unsupervised"
-unsupervised_method: "byol" # "simclr" or "byol"
-save_each_epochs: 1
 projection_hidden: 128      # only used for supervised feature learning
-
-
 
 # loss options
 optimizer: "Adam" # or LARS (experimental)
@@ -60,14 +54,11 @@ logistic_batch_size: 256
 logistic_epochs: 500
 deepmil_lr: 0.0005
 deepmil_reg: 10.0e-5
-precompute_features: True
-precompute_features_in_memory: True
+precompute_features: False
+precompute_features_in_memory: False
 use_precomputed_features: True
-use_precomputed_features_id: '1'
+use_precomputed_features_id: '342'
 freeze_encoder: True
-validation_split: 0.2
-evaluate_every: 1
-
 
 use_focal_loss: False
 focal_loss_alpha: 1
