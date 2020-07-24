@@ -53,7 +53,7 @@ class TiledTCGADataset(Dataset):
         self.labels = pd.read_csv(csv_file, converters={'case': str})
 
         if self.tensor_per_patient:
-            self.labels = self.labels.groupby('case').mean() # We end up with a single row per patient, and the mean of all labels, which is the label
+            self.labels = self.labels.groupby('case').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
 
         self.transform = transform
 
@@ -68,9 +68,6 @@ class TiledTCGADataset(Dataset):
         row = self.labels.iloc[idx]
 
         case_id = str(row['case'])
-        dot_id = row['dot_id']
-        tile_num = row['num']
-        patient_id = self.dot_id_to_tcga_id[dot_id].split('-')[2]
         label=row['msi']
 
         # case_id = str(self.labels.at[idx, "case"])
@@ -81,15 +78,19 @@ class TiledTCGADataset(Dataset):
         # label= self.labels.at[idx, "msi"]
 
         if not self.tensor_per_patient:
+            tile_num = row['num']
+            dot_id = row['dot_id']
             img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                     dot_id,
                                     'jpeg',
                                     f'tile{tile_num}{self.append_with}'
                                     )
+            
+            patient_id = self.dot_id_to_tcga_id[dot_id].split('-')[2]
         else:
-            img_name = os.path.join(self.root_dir, f'case-{case_id}'),
-                                    f"pid_{case_id}_tile_vectors_extractor_{}.pt")
-
+            img_name = os.path.join(self.root_dir, f'case-{case_id}',
+                                    f"pid_{case_id}_tile_vectors_extractor_{self.precomputed_from_run}.pt")
+            patient_id = case_id
         if self.precomputed or self.tensor_per_patient:
             tile = torch.load(img_name, map_location='cpu')
         else:
