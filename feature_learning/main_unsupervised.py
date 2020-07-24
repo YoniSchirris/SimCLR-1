@@ -249,4 +249,9 @@ def main(_run, _log):
         args.current_epoch += 1
 
     ## end training
-    save_model(args, model, optimizer)
+    if args.unsupervised_method == "simclr":
+        # Save entire model
+        save_model(args, model, optimizer)
+    elif args.unsupervised_method == "byol":
+        # Save only the resnet backbone
+        save_model(args, backbone, optimizer)
