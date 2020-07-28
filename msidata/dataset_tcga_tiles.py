@@ -24,7 +24,8 @@ class TiledTCGADataset(Dataset):
     """Dataset class for tiled WSIs from TCGA
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
-    def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, precomputed=False, precomputed_from_run=None):
+    def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, 
+                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -32,6 +33,10 @@ class TiledTCGADataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+        self.split_num=1 # Which k-fold for train-val split?
+        self.split = split
+        self.label=label
+
         # self.labels = pd.read_csv(csv_file)
         self.precomputed=precomputed
         self.precomputed_from_run = precomputed_from_run
@@ -52,6 +57,14 @@ class TiledTCGADataset(Dataset):
             self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
 
+        if split:
+            if split == 'train' or split == 'val':
+                append = f'_{split_num}'
+            elif split == 'test':
+                append = ''
+
+            self.labels = self.labels[self.labels[f'{split}{append}']==1].reset_index()
+            
         if self.tensor_per_patient:
             self.labels = self.labels.groupby('case').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
 
@@ -68,7 +81,11 @@ class TiledTCGADataset(Dataset):
         row = self.labels.iloc[idx]
 
         case_id = str(row['case'])
-        label=row['msi']
+
+        if self.label:
+            label=row[self.label]
+        else:
+            label=None
 
         # case_id = str(self.labels.at[idx, "case"])
         # dot_id = self.labels.at[idx, "dot_id"]

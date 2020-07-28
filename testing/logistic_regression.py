@@ -268,7 +268,10 @@ def get_precomputed_dataloader(args, run_id):
             precomputed=True,
             precomputed_from_run=run_id,
             sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors
+            tensor_per_patient=args.load_patient_level_tensors,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='train'
             )     
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
@@ -277,12 +280,32 @@ def get_precomputed_dataloader(args, run_id):
             precomputed=True,
             precomputed_from_run=run_id,
             sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors
+            tensor_per_patient=args.load_patient_level_tensors,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='test'
+            )
+        val_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=None,
+            precomputed=True,
+            precomputed_from_run=run_id,
+            sampling_strategy=sampling_strategy,
+            tensor_per_patient=args.load_patient_level_tensors,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='val'
             )
 
-    train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)
+    if args.dataset=='msi-kather':
+        train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+        train_sampler = SubsetRandomSampler(train_indices)
+        val_sampler = SubsetRandomSampler(val_indices)
+        val_dataset=train_dataset
+    elif args.dataset=='msi-tcga':
+        train_sampler=None
+        val_sampler=None
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -293,7 +316,7 @@ def get_precomputed_dataloader(args, run_id):
     )
 
     val_loader = torch.utils.data.DataLoader(
-        train_dataset,
+        val_dataset,
         batch_size=args.logistic_batch_size,
         drop_last=False,
         num_workers=args.workers,
@@ -307,6 +330,10 @@ def get_precomputed_dataloader(args, run_id):
         drop_last=False,
         num_workers=args.workers,
     )
+
+    assert (len(train_loader) != len(test_loader))
+    assert (len(train_loader) != len(val_loader))
+    assert (len(val_loader) != len(test_loader))
 
     return train_loader, val_loader, test_loader
 
@@ -389,20 +416,33 @@ def main(_run, _log):
         train_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform
+            transform=TransformsSimCLR(size=224).test_transform,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='train'
             )     
         test_dataset = dataset_tcga(
-            csv_file=args.path_to_test_msi_data, 
+            csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform
+            transform=TransformsSimCLR(size=224).test_transform,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='test'
+            )
+        val_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=TransformsSimCLR(size=224).test_transform,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='val'
             )
     else:
         raise NotImplementedError
 
     # Get the train and validation samplers
-    train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)  
+
+    
 
 
     # Get the extractor
@@ -463,6 +503,19 @@ def main(_run, _log):
 
         #TODO ISNT THIS EXACTLY THE SAME AS THE LOADERS ABOVE? CAN SKIP THIS?
 
+        if args.dataset == 'msi-tcga':
+            # For msi-tcga, we have pre-split everything
+            train_loader=None
+            val_loader=None
+    
+
+        else:
+            train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+            train_sampler = SubsetRandomSampler(train_indices)
+            val_sampler = SubsetRandomSampler(val_indices)  
+            val_dataset = train_dataset
+            # for non-msi-tcga, we have to split, still
+
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=args.logistic_batch_size,
@@ -470,13 +523,15 @@ def main(_run, _log):
             num_workers=args.workers,
             sampler=train_sampler
         )
+
         val_loader = torch.utils.data.DataLoader(
-            train_dataset,
+            val_dataset,
             batch_size=args.logistic_batch_size,
             drop_last=drop_last,
             num_workers=args.workers,
             sampler=val_sampler
         )
+
         test_loader = torch.utils.data.DataLoader(
             test_dataset,
             batch_size=args.logistic_batch_size,

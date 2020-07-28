@@ -4,6 +4,7 @@ batch_size: 32
 workers: 16
 start_epoch: 0
 epochs: 100
+kfold: 1
 
 #Data options
 dataset: "msi-kather" # STL10 / CIFAR10 / 'msi-kather' / 'mci-tga'
@@ -70,6 +71,7 @@ use_precomputed_features_id: '1'
 freeze_encoder: True
 validation_split: 0.2
 evaluate_every: 1
+ddr_label: 'msi' # or any of the ones defined in the ddr sheet
 
 
 use_focal_loss: False
