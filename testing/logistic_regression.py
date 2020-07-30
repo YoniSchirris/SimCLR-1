@@ -477,11 +477,15 @@ def main(_run, _log):
     ## Get Classifier
     if args.classification_head == 'logistic':
         model = LogisticRegression(n_features, n_classes)
-        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.logistic_lr)
     
     elif args.classification_head == 'deepmil':
         model = Attention(hidden_dim=n_features)
         optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+    
+    else:
+        print(f"{args.classification_head} has not been implemented as classification head")
+        raise NotImplementedError
 
         
     model = model.to(args.device)
@@ -505,8 +509,8 @@ def main(_run, _log):
 
         if args.dataset == 'msi-tcga':
             # For msi-tcga, we have pre-split everything
-            train_loader=None
-            val_loader=None
+            train_sampler=None
+            val_sampler=None
     
 
         else:
