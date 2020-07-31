@@ -8,7 +8,7 @@ from modules.deepmil import Attention
 def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''):
     #TODO Loader is not used
 
-    possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenet-v1_x1_0': models.shufflenet_v2_x1_0}
+    possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenetv2_x1_0': models.shufflenet_v2_x1_0}
 
     if model_type == 'simclr':
         if args.feature_learning == "unsupervised":
