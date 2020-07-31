@@ -110,7 +110,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''
 
 def save_model(args, model, optimizer, prepend=''):
 
-    out = os.path.join(args.out_dir, "{}checkpoint_{}.tar".format(prepend, args.current_epoch))
+    out = os.path.join(args.out_dir, "{}checkpoint_{}.tar".format(prepend, args.global_step))
 
     print(f'Saving model to {out}')
 

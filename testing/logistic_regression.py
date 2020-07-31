@@ -151,7 +151,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
         if global_step % args.evaluate_every == 0:
             # evaluate
             val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, val_loader, extractor, model, criterion, optimizer)
-            val_losses.append(val_loss)
+            val_losses.append(val_loss / len(val_loader))
 
             # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
             # If we use a tile-level prediciton, group and mean create a fraction prediction
@@ -161,20 +161,14 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             val_roc.append(rocauc)
 
             # Save model with each evaluation
+            args.global_step = global_step
             if extractor:
-                # If we do not have an extractor, e.g. when we use precomputed features
+                # We don't always have an extractor, e.g. when we use precomputed features
                 save_model(args, extractor, None, prepend='extractor_')
             # Save classification model, which is the primary model being trained here
             save_model(args, model, None, prepend='classifier_')
         
-            print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | \
-                Epoch [{epoch+1}/{args.logistic_epochs}]\t \
-                    Step [{step}/{len(train_loader)}]\t \
-                        Val Loss: {val_loss / len(val_loader)}\t \
-                            Accuracy: {val_accuracy / len(val_loader)}\t \
-                                ROC AUC: {rocauc}"
-            )
+            print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tROC AUC: {rocauc}")
 
     return loss_epoch, accuracy_epoch, val_losses, val_roc, global_step
 
@@ -635,7 +629,16 @@ def main(_run, _log):
         writer.add_scalar("loss/train", loss_epoch / len(arr_train_loader), epoch)
 
     ### ============= TESTING =============  ###
-    best_model_num = np.argmax(val_roc)
+    if not 'best_model_evaluation' in vars(args).keys():
+        args.best_model_evaluation = 'auc'
+
+    if args.best_model_evaluation == 'auc':
+        # This seems like it would make most sense for the logistic regression (tile-level prediction & majority vote)
+        best_model_num = np.argmax(val_roc)
+    elif args.best_model_evaluation == 'loss':
+        # This is probably most sensible for patient-level prediction methods like deepmil
+        best_model_num = np.argmin(val_losses)
+    
     best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
 
     print(f'Validation ROCs: {val_roc}\nValidation loss: {val_losses}.\nBest performance by model @ epoch # {best_model_epoch}')
