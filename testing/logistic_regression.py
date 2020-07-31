@@ -115,6 +115,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
         
         model.train()
         if args.classification_head == 'logistic':
+            y = y.long()
             output = model(x)
             if not args.use_focal_loss:
                 loss = criterion(output, y)
@@ -208,6 +209,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
             pass
 
         if args.classification_head == 'logistic':
+            y = y.long()
             with torch.no_grad():
                 output = model(x)
                 if not args.use_focal_loss:
