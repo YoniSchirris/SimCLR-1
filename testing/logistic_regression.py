@@ -135,19 +135,17 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             error, _ = model.calculate_classification_error(y, Y_hat)
             acc = 1. - error
 
-        if not args.freeze_encoder:
-            previous_weights_of_last_layer = list(extractor.state_dict().values())[-1]
-        
+        if not args.freeze_encoder and args.debug:
+            previous_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
+
         accuracy_epoch += acc
         loss.backward()         # Depending on the setup: Computes gradients for classifier and possibly extractor
         optimizer.step()        # Can update both the classifier and the extractor, depending on the options
         if step % 20 == 0:
             print(f"Step [{step}/{len(train_loader)}]\t Training...")
 
-  
-        if not args.freeze_encoder:
-            new_weights_of_last_layer = list(extractor.state_dict().values())[-1]
-
+        if not args.freeze_encoder and args.debug:
+            new_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
             assert(not torch.eq(new_weights_of_last_layer, previous_weights_of_last_layer).all()), "The weights are not being updated!"
 
     return loss_epoch, accuracy_epoch
@@ -361,6 +359,9 @@ def main(_run, _log):
     args = post_config_hook(args, _run)
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    if 'debug' not in vars(args).keys():
+        args.debug = False
+
     set_seed(args.seed)
 
     if 'train_extractor_on_generated_labels' in vars(args).keys():
@@ -477,11 +478,17 @@ def main(_run, _log):
     ## Get Classifier
     if args.classification_head == 'logistic':
         model = LogisticRegression(n_features, n_classes)
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.logistic_lr)
+        if args.freeze_encoder:
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.logistic_lr)
+        else:
+            optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.logistic_lr)
     
     elif args.classification_head == 'deepmil':
         model = Attention(hidden_dim=n_features)
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+        if args.freeze_encoder:
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+        else:
+            optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
     
     else:
         print(f"{args.classification_head} has not been implemented as classification head")
