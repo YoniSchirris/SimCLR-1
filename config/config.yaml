@@ -70,7 +70,7 @@ use_precomputed_features: True
 use_precomputed_features_id: '1'
 freeze_encoder: True
 validation_split: 0.2
-evaluate_every: 1
+evaluate_every: 50 # Every # Steps, not epochs. Check # items / batch_size for number of steps per epoch
 ddr_label: 'msi' # or any of the ones defined in the ddr sheet
 
 

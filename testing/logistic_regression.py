@@ -88,10 +88,11 @@ def create_data_loaders_from_arrays(X_train, y_train, X_val, y_val, X_test, y_te
     return train_loader, val_loader, test_loader
 
 
-def train(args, train_loader, val_loader, extractor, model, criterion, optimizer):
+def train(args, train_loader, val_loader, extractor, model, criterion, optimizer, val_losses, val_roc, global_step, epoch, writer):
     loss_epoch = 0
     accuracy_epoch = 0
     for step, data in enumerate(train_loader):
+        global_step += 1
         optimizer.zero_grad()
         x =  data[0].to(args.device) 
         y = data[1].to(args.device)
@@ -141,14 +142,41 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
         accuracy_epoch += acc
         loss.backward()         # Depending on the setup: Computes gradients for classifier and possibly extractor
         optimizer.step()        # Can update both the classifier and the extractor, depending on the options
-        if step % 20 == 0:
-            print(f"Step [{step}/{len(train_loader)}]\t Training...")
-
+       
         if not args.freeze_encoder and args.debug:
             new_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
             assert(not torch.eq(new_weights_of_last_layer, previous_weights_of_last_layer).all()), "The weights are not being updated!"
 
-    return loss_epoch, accuracy_epoch
+         # Evaluate on validation set
+        if global_step % args.evaluate_every == 0:
+            # evaluate
+            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, val_loader, extractor, model, criterion, optimizer)
+            val_losses.append(val_loss)
+
+            # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
+            # If we use a tile-level prediciton, group and mean create a fraction prediction
+            val_data, rocauc = compute_roc_auc(val_patients, val_labels, val_preds)
+            writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
+            writer.add_scalar("rocauc/val", rocauc, epoch)
+            val_roc.append(rocauc)
+
+            # Save model with each evaluation
+            if extractor:
+                # If we do not have an extractor, e.g. when we use precomputed features
+                save_model(args, extractor, None, prepend='extractor_')
+            # Save classification model, which is the primary model being trained here
+            save_model(args, model, None, prepend='classifier_')
+        
+            print(
+            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | \
+                Epoch [{epoch+1}/{args.logistic_epochs}]\t \
+                    Step [{step}/{len(train_loader)}]\t \
+                        Val Loss: {val_loss / len(val_loader)}\t \
+                            Accuracy: {val_accuracy / len(val_loader)}\t \
+                                ROC AUC: {rocauc}"
+            )
+
+    return loss_epoch, accuracy_epoch, val_losses, val_roc, global_step
 
 
 def validate(args, loader, extractor, model, criterion, optimizer):
@@ -353,6 +381,14 @@ def write_hparams(writer, config, metric):
 
     writer.add_hparams(config_vars, metric)
 
+def compute_roc_auc(patients, labels, preds):
+    data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+    dfgroup = data.groupby(['patient']).mean()
+    labels = dfgroup['labels'].values
+    preds = dfgroup['preds'].values
+    rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+    return data, rocauc
+
 @ex.automain
 def main(_run, _log):
     args = argparse.Namespace(**_run.config)
@@ -375,8 +411,6 @@ def main(_run, _log):
             with open(f'./logs/{args.generated_labels_id}/config.json') as f:
                 config_of_label_creation = json.load(f)
             assert(args.seed == config_of_label_creation['seed']), f"Current seed: {args.seed}. Seed during label creation of run {args.generated_labels_id}: {config_of_label_creation['seed']}. Ensure they are equal to get the same train-test split"
-
-
 
     tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
     os.makedirs(tb_dir)
@@ -441,11 +475,6 @@ def main(_run, _log):
     else:
         raise NotImplementedError
 
-    # Get the train and validation samplers
-
-    
-
-
     # Get the extractor
     if args.logistic_extractor == 'byol':
         # We get the rn18 backbone with the loaded state dict
@@ -458,12 +487,13 @@ def main(_run, _log):
 
     # Freeze encoder if asked for
     if args.freeze_encoder:
+        print("===== Encoder is frozen =====")
         extractor.eval()
     else:
+        print("===== Encoder is NOT frozen =====")
         extractor.train()
 
     ## Logistic Regression
-    # n_classes = 10  # stl-10
     n_classes = 2  # MSI VS MSS
     
     # Get number of features that feature extractor produces
@@ -499,7 +529,7 @@ def main(_run, _log):
 
     print(model)
     
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss() #TODO Add class balance
 
     ### ============= GET THE CORRECT DATA LOADERS =============  ###
 
@@ -512,14 +542,11 @@ def main(_run, _log):
 
         drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
 
-        #TODO ISNT THIS EXACTLY THE SAME AS THE LOADERS ABOVE? CAN SKIP THIS?
-
         if args.dataset == 'msi-tcga':
             # For msi-tcga, we have pre-split everything
             train_sampler=None
             val_sampler=None
     
-
         else:
             train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
             train_sampler = SubsetRandomSampler(train_indices)
@@ -551,6 +578,7 @@ def main(_run, _log):
         )
      
 
+    ### ============ Precompute and/or load precomputed features ============= ####
     if args.precompute_features:
         # We need the image loader defined above 
    
@@ -600,51 +628,13 @@ def main(_run, _log):
     ### ============= TRAINING =============  ###
     val_losses = []
     val_roc = []
+    global_step = 0
     for epoch in range(args.logistic_epochs):
-
-        # Train for 1 epoch
-        loss_epoch, accuracy_epoch = train(args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer)
-
+        args.current_epoch = epoch
+        loss_epoch, accuracy_epoch, val_losses, val_roc, global_step = train(args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer, val_losses, val_roc, global_step, epoch, writer)
         writer.add_scalar("loss/train", loss_epoch / len(arr_train_loader), epoch)
 
-        # Evaluate on validation set
-        if (epoch+1) % args.evaluate_every == 0:
-            # evaluate
-            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, arr_val_loader, extractor, model, criterion, optimizer)
-            val_losses.append(val_loss)
-
-            # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
-            # If we use a tile-level prediciton, group and mean create a fraction prediction
-            val_data = pd.DataFrame(data={'patient': val_patients, 'labels': val_labels, 'preds': val_preds})
-            dfgroup = val_data.groupby(['patient']).mean()
-            labels = dfgroup['labels'].values
-            preds = dfgroup['preds'].values
-            rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
-
-            writer.add_scalar("loss/val", val_loss / len(arr_val_loader), epoch)
-            writer.add_scalar("rocauc/val", rocauc, epoch)
-
-            val_roc.append(rocauc)
-
-            args.current_epoch = epoch+1
-
-            # Save model with each evaluation
-            if extractor:
-                # If we do not have an extractor, e.g. when we use precomputed features
-                save_model(args, extractor, None, prepend='extractor_')
-            # Save classification model, which is the primary model being trained here
-            save_model(args, model, None, prepend='classifier_')
-        
-            print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | \
-                Epoch [{epoch+1}/{args.logistic_epochs}]\t \
-                    Val Loss: {val_loss / len(arr_val_loader)}\t \
-                        Accuracy: {val_accuracy / len(arr_val_loader)}\t \
-                            ROC AUC: {rocauc}"
-            )
-
     ### ============= TESTING =============  ###
-
     best_model_num = np.argmax(val_roc)
     best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
 
@@ -660,25 +650,14 @@ def main(_run, _log):
         args, arr_test_loader, extractor, model, criterion, optimizer
     )
 
-    final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
-
+    final_data, rocauc = compute_roc_auc(patients, labels, preds)
     humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
-
     print(f'This is the out dir {args.out_dir}')
     final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
-
-    dfgroup = final_data.groupby(['patient']).mean()
-    labels = dfgroup['labels'].values
-    preds = dfgroup['preds'].values
-    rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
-
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     writer.add_scalar("rocauc/test", rocauc)
-
     write_hparams(writer, args, {'hparam/rocauc': rocauc })
-
     _run.log_scalar('test/rocauc', rocauc, 0)
-
     print(
         f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
     )
