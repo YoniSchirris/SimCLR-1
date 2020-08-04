@@ -16,6 +16,8 @@ except ImportError:
         "Install the apex package from https://www.github.com/nvidia/apex to use fp16 for training"
     )
 
+
+
 from model import load_model, save_model
 from modules import NT_Xent
 from modules.sync_batchnorm import convert_model
@@ -27,7 +29,7 @@ from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 #### pass configuration
 from experiment import ex
 
-def train_simclr(args, train_loader, model, criterion, optimizer, writer):
+def train_simclr(args, train_loader, model, criterion, optimizer, writer, scaler):
     loss_epoch = 0
     t0=time.time()
 
@@ -48,22 +50,23 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
         t2=time.time()
 
         # positive pair, with encoding
-        h_i, z_i = model(x_i)
-        h_j, z_j = model(x_j)
-
-        t3=time.time()
-
-        loss = criterion(z_i, z_j)
-
-        t4=time.time()
+        with torch.cuda.amp.autocast():
+            h_i, z_i = model(x_i)
+            h_j, z_j = model(x_j)
+            t3=time.time()
+            loss = criterion(z_i, z_j)
+            t4=time.time()
 
         if apex and args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
-            loss.backward()
+            scaler.scale(loss).backward()
 
-        optimizer.step()
+        scaler.step(optimizer)
+
+        scaler.update()
+        # optimizer.step()
 
         t5=time.time()
                 
@@ -89,7 +92,7 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     
     return loss_epoch
 
-def train_byol(args, train_loader, model, criterion, optimizer, writer):
+def train_byol(args, train_loader, model, criterion, optimizer, writer, scaler):
     loss_epoch = 0
     print("Training BYOL!")
     t_port=0
@@ -133,7 +136,7 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer):
 
     return loss_epoch
 
-def train(args, train_loader, model, criterion, optimizer, writer):
+def train(args, train_loader, model, criterion, optimizer, writer, scaler):
 
     if args.unsupervised_method == 'simclr':
         train_method = train_simclr
@@ -142,7 +145,7 @@ def train(args, train_loader, model, criterion, optimizer, writer):
     else:
         raise NotImplementedError
 
-    loss_epoch = train_method(args, train_loader, model, criterion, optimizer, writer)
+    loss_epoch = train_method(args, train_loader, model, criterion, optimizer, writer, scaler)
     
     return loss_epoch
 
@@ -151,6 +154,8 @@ def train(args, train_loader, model, criterion, optimizer, writer):
 def main(_run, _log):
     args = argparse.Namespace(**_run.config)
     args = post_config_hook(args, _run)
+
+    scaler = torch.cuda.amp.GradScaler() 
 
     if torch.cuda.is_available():
         print("--- USING GPU ---")
@@ -233,7 +238,7 @@ def main(_run, _log):
     args.current_epoch = 0
     for epoch in range(args.start_epoch, args.epochs):
         lr = optimizer.param_groups[0]['lr']
-        loss_epoch = train(args, train_loader, model, criterion, optimizer, writer)
+        loss_epoch = train(args, train_loader, model, criterion, optimizer, writer, scaler)
 
         if scheduler:
             scheduler.step()
