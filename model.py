@@ -8,7 +8,7 @@ from modules.deepmil import Attention
 def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''):
     #TODO Loader is not used
 
-    possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenet-v1_x1_0': models.shufflenet_v2_x1_0}
+    possible_non_simclr_models = {'imagenet-resnet18': models.resnet18, 'imagenet-resnet50': models.resnet50, 'imagenet-shufflenetv2_x1_0': models.shufflenet_v2_x1_0}
 
     if model_type == 'simclr':
         if args.feature_learning == "unsupervised":
@@ -110,7 +110,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''
 
 def save_model(args, model, optimizer, prepend=''):
 
-    out = os.path.join(args.out_dir, "{}checkpoint_{}.tar".format(prepend, args.current_epoch))
+    out = os.path.join(args.out_dir, "{}checkpoint_{}.tar".format(prepend, args.global_step))
 
     print(f'Saving model to {out}')
 

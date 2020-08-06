@@ -88,10 +88,11 @@ def create_data_loaders_from_arrays(X_train, y_train, X_val, y_val, X_test, y_te
     return train_loader, val_loader, test_loader
 
 
-def train(args, train_loader, val_loader, extractor, model, criterion, optimizer):
+def train(args, train_loader, val_loader, extractor, model, criterion, optimizer, val_losses, val_roc, global_step, epoch, writer):
     loss_epoch = 0
     accuracy_epoch = 0
     for step, data in enumerate(train_loader):
+        global_step += 1
         optimizer.zero_grad()
         x =  data[0].to(args.device) 
         y = data[1].to(args.device)
@@ -114,6 +115,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
         
         model.train()
         if args.classification_head == 'logistic':
+            y = y.long()
             output = model(x)
             if not args.use_focal_loss:
                 loss = criterion(output, y)
@@ -135,22 +137,41 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             error, _ = model.calculate_classification_error(y, Y_hat)
             acc = 1. - error
 
-        if not args.freeze_encoder:
-            previous_weights_of_last_layer = list(extractor.state_dict().values())[-1]
-        
+        if not args.freeze_encoder and args.debug:
+            previous_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
+
         accuracy_epoch += acc
         loss.backward()         # Depending on the setup: Computes gradients for classifier and possibly extractor
         optimizer.step()        # Can update both the classifier and the extractor, depending on the options
-        if step % 20 == 0:
-            print(f"Step [{step}/{len(train_loader)}]\t Training...")
-
-  
-        if not args.freeze_encoder:
-            new_weights_of_last_layer = list(extractor.state_dict().values())[-1]
-
+       
+        if not args.freeze_encoder and args.debug:
+            new_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
             assert(not torch.eq(new_weights_of_last_layer, previous_weights_of_last_layer).all()), "The weights are not being updated!"
 
-    return loss_epoch, accuracy_epoch
+         # Evaluate on validation set
+        if global_step % args.evaluate_every == 0:
+            # evaluate
+            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, val_loader, extractor, model, criterion, optimizer)
+            val_losses.append(val_loss / len(val_loader))
+
+            # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
+            # If we use a tile-level prediciton, group and mean create a fraction prediction
+            val_data, rocauc = compute_roc_auc(val_patients, val_labels, val_preds)
+            writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
+            writer.add_scalar("rocauc/val", rocauc, epoch)
+            val_roc.append(rocauc)
+
+            # Save model with each evaluation
+            args.global_step = global_step
+            if extractor:
+                # We don't always have an extractor, e.g. when we use precomputed features
+                save_model(args, extractor, None, prepend='extractor_')
+            # Save classification model, which is the primary model being trained here
+            save_model(args, model, None, prepend='classifier_')
+        
+            print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tROC AUC: {rocauc}")
+
+    return loss_epoch, accuracy_epoch, val_losses, val_roc, global_step
 
 
 def validate(args, loader, extractor, model, criterion, optimizer):
@@ -188,6 +209,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
             pass
 
         if args.classification_head == 'logistic':
+            y = y.long()
             with torch.no_grad():
                 output = model(x)
                 if not args.use_focal_loss:
@@ -268,7 +290,10 @@ def get_precomputed_dataloader(args, run_id):
             precomputed=True,
             precomputed_from_run=run_id,
             sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors
+            tensor_per_patient=args.load_patient_level_tensors,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='train'
             )     
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
@@ -277,12 +302,32 @@ def get_precomputed_dataloader(args, run_id):
             precomputed=True,
             precomputed_from_run=run_id,
             sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors
+            tensor_per_patient=args.load_patient_level_tensors,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='test'
+            )
+        val_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=None,
+            precomputed=True,
+            precomputed_from_run=run_id,
+            sampling_strategy=sampling_strategy,
+            tensor_per_patient=args.load_patient_level_tensors,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='val'
             )
 
-    train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)
+    if args.dataset=='msi-kather':
+        train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+        train_sampler = SubsetRandomSampler(train_indices)
+        val_sampler = SubsetRandomSampler(val_indices)
+        val_dataset=train_dataset
+    elif args.dataset=='msi-tcga':
+        train_sampler=None
+        val_sampler=None
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -293,7 +338,7 @@ def get_precomputed_dataloader(args, run_id):
     )
 
     val_loader = torch.utils.data.DataLoader(
-        train_dataset,
+        val_dataset,
         batch_size=args.logistic_batch_size,
         drop_last=False,
         num_workers=args.workers,
@@ -307,6 +352,10 @@ def get_precomputed_dataloader(args, run_id):
         drop_last=False,
         num_workers=args.workers,
     )
+
+    assert (len(train_loader) != len(test_loader))
+    assert (len(train_loader) != len(val_loader))
+    assert (len(val_loader) != len(test_loader))
 
     return train_loader, val_loader, test_loader
 
@@ -328,11 +377,22 @@ def write_hparams(writer, config, metric):
 
     writer.add_hparams(config_vars, metric)
 
+def compute_roc_auc(patients, labels, preds):
+    data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+    dfgroup = data.groupby(['patient']).mean()
+    labels = dfgroup['labels'].values
+    preds = dfgroup['preds'].values
+    rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+    return data, rocauc
+
 @ex.automain
 def main(_run, _log):
     args = argparse.Namespace(**_run.config)
     args = post_config_hook(args, _run)
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    if 'debug' not in vars(args).keys():
+        args.debug = False
 
     set_seed(args.seed)
 
@@ -347,8 +407,6 @@ def main(_run, _log):
             with open(f'./logs/{args.generated_labels_id}/config.json') as f:
                 config_of_label_creation = json.load(f)
             assert(args.seed == config_of_label_creation['seed']), f"Current seed: {args.seed}. Seed during label creation of run {args.generated_labels_id}: {config_of_label_creation['seed']}. Ensure they are equal to get the same train-test split"
-
-
 
     tb_dir = os.path.join(args.out_dir, _run.experiment_info["name"])
     os.makedirs(tb_dir)
@@ -389,21 +447,29 @@ def main(_run, _log):
         train_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform
+            transform=TransformsSimCLR(size=224).test_transform,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='train'
             )     
         test_dataset = dataset_tcga(
-            csv_file=args.path_to_test_msi_data, 
+            csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform
+            transform=TransformsSimCLR(size=224).test_transform,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='test'
+            )
+        val_dataset = dataset_tcga(
+            csv_file=args.path_to_msi_data, 
+            root_dir=args.root_dir_for_tcga_tiles, 
+            transform=TransformsSimCLR(size=224).test_transform,
+            split_num=args.kfold,
+            label=args.ddr_label,
+            split='val'
             )
     else:
         raise NotImplementedError
-
-    # Get the train and validation samplers
-    train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)  
-
 
     # Get the extractor
     if args.logistic_extractor == 'byol':
@@ -417,12 +483,13 @@ def main(_run, _log):
 
     # Freeze encoder if asked for
     if args.freeze_encoder:
+        print("===== Encoder is frozen =====")
         extractor.eval()
     else:
+        print("===== Encoder is NOT frozen =====")
         extractor.train()
 
     ## Logistic Regression
-    # n_classes = 10  # stl-10
     n_classes = 2  # MSI VS MSS
     
     # Get number of features that feature extractor produces
@@ -437,18 +504,28 @@ def main(_run, _log):
     ## Get Classifier
     if args.classification_head == 'logistic':
         model = LogisticRegression(n_features, n_classes)
-        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+        if args.freeze_encoder:
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.logistic_lr)
+        else:
+            optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.logistic_lr)
     
     elif args.classification_head == 'deepmil':
         model = Attention(hidden_dim=n_features)
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+        if args.freeze_encoder:
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+        else:
+            optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+    
+    else:
+        print(f"{args.classification_head} has not been implemented as classification head")
+        raise NotImplementedError
 
         
     model = model.to(args.device)
 
     print(model)
     
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss() #TODO Add class balance
 
     ### ============= GET THE CORRECT DATA LOADERS =============  ###
 
@@ -461,7 +538,17 @@ def main(_run, _log):
 
         drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
 
-        #TODO ISNT THIS EXACTLY THE SAME AS THE LOADERS ABOVE? CAN SKIP THIS?
+        if args.dataset == 'msi-tcga':
+            # For msi-tcga, we have pre-split everything
+            train_sampler=None
+            val_sampler=None
+    
+        else:
+            train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
+            train_sampler = SubsetRandomSampler(train_indices)
+            val_sampler = SubsetRandomSampler(val_indices)  
+            val_dataset = train_dataset
+            # for non-msi-tcga, we have to split, still
 
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -470,13 +557,15 @@ def main(_run, _log):
             num_workers=args.workers,
             sampler=train_sampler
         )
+
         val_loader = torch.utils.data.DataLoader(
-            train_dataset,
+            val_dataset,
             batch_size=args.logistic_batch_size,
             drop_last=drop_last,
             num_workers=args.workers,
             sampler=val_sampler
         )
+
         test_loader = torch.utils.data.DataLoader(
             test_dataset,
             batch_size=args.logistic_batch_size,
@@ -485,6 +574,7 @@ def main(_run, _log):
         )
      
 
+    ### ============ Precompute and/or load precomputed features ============= ####
     if args.precompute_features:
         # We need the image loader defined above 
    
@@ -534,52 +624,23 @@ def main(_run, _log):
     ### ============= TRAINING =============  ###
     val_losses = []
     val_roc = []
+    global_step = 0
     for epoch in range(args.logistic_epochs):
-
-        # Train for 1 epoch
-        loss_epoch, accuracy_epoch = train(args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer)
-
+        args.current_epoch = epoch
+        loss_epoch, accuracy_epoch, val_losses, val_roc, global_step = train(args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer, val_losses, val_roc, global_step, epoch, writer)
         writer.add_scalar("loss/train", loss_epoch / len(arr_train_loader), epoch)
 
-        # Evaluate on validation set
-        if (epoch+1) % args.evaluate_every == 0:
-            # evaluate
-            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, arr_val_loader, extractor, model, criterion, optimizer)
-            val_losses.append(val_loss)
-
-            # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
-            # If we use a tile-level prediciton, group and mean create a fraction prediction
-            val_data = pd.DataFrame(data={'patient': val_patients, 'labels': val_labels, 'preds': val_preds})
-            dfgroup = val_data.groupby(['patient']).mean()
-            labels = dfgroup['labels'].values
-            preds = dfgroup['preds'].values
-            rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
-
-            writer.add_scalar("loss/val", val_loss / len(arr_val_loader), epoch)
-            writer.add_scalar("rocauc/val", rocauc, epoch)
-
-            val_roc.append(rocauc)
-
-            args.current_epoch = epoch+1
-
-            # Save model with each evaluation
-            if extractor:
-                # If we do not have an extractor, e.g. when we use precomputed features
-                save_model(args, extractor, None, prepend='extractor_')
-            # Save classification model, which is the primary model being trained here
-            save_model(args, model, None, prepend='classifier_')
-        
-            print(
-            f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | \
-                Epoch [{epoch+1}/{args.logistic_epochs}]\t \
-                    Val Loss: {val_loss / len(arr_val_loader)}\t \
-                        Accuracy: {val_accuracy / len(arr_val_loader)}\t \
-                            ROC AUC: {rocauc}"
-            )
-
     ### ============= TESTING =============  ###
+    if not 'best_model_evaluation' in vars(args).keys():
+        args.best_model_evaluation = 'auc'
 
-    best_model_num = np.argmax(val_roc)
+    if args.best_model_evaluation == 'auc':
+        # This seems like it would make most sense for the logistic regression (tile-level prediction & majority vote)
+        best_model_num = np.argmax(val_roc)
+    elif args.best_model_evaluation == 'loss':
+        # This is probably most sensible for patient-level prediction methods like deepmil
+        best_model_num = np.argmin(val_losses)
+    
     best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
 
     print(f'Validation ROCs: {val_roc}\nValidation loss: {val_losses}.\nBest performance by model @ epoch # {best_model_epoch}')
@@ -594,25 +655,14 @@ def main(_run, _log):
         args, arr_test_loader, extractor, model, criterion, optimizer
     )
 
-    final_data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
-
+    final_data, rocauc = compute_roc_auc(patients, labels, preds)
     humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
-
     print(f'This is the out dir {args.out_dir}')
     final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
-
-    dfgroup = final_data.groupby(['patient']).mean()
-    labels = dfgroup['labels'].values
-    preds = dfgroup['preds'].values
-    rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
-
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     writer.add_scalar("rocauc/test", rocauc)
-
     write_hparams(writer, args, {'hparam/rocauc': rocauc })
-
     _run.log_scalar('test/rocauc', rocauc, 0)
-
     print(
         f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
     )
