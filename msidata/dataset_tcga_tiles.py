@@ -58,12 +58,14 @@ class TiledTCGADataset(Dataset):
         self.labels = pd.read_csv(csv_file, converters={'case': str})
 
         if split:
-            if split == 'train' or split == 'val':
-                append = f'_{split_num}'
-            elif split == 'test':
-                append = ''
-
-            self.labels = self.labels[self.labels[f'{split}{append}']==1].reset_index()
+            if split_num == 0 and split == 'train': # We want the train set, but not a specific fold... so we take all non-test data
+                self.labels = self.labels[~self.labels[f'test']==1].reset_index() # We train unsupervised on all training data, instead of only specific folds. We don't look at test data, though!
+            else:
+                if split == 'train' or split == 'val': # We want the train or validation set of a specific fold...
+                    append = f'_{split_num}'
+                elif split == 'test': # We want all test data
+                    append = ''
+                self.labels = self.labels[self.labels[f'{split}{append}']==1].reset_index()
             
         if self.tensor_per_patient:
             self.labels = self.labels.groupby('case').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
