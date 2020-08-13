@@ -1,0 +1,66 @@
+# train options
+seed: 42 # sacred handles automatic seeding when passed in the config
+batch_size: 32
+workers: 16
+start_epoch: 0
+epochs: 100
+
+#Data options
+dataset: "msi-tcga" # STL10
+#path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+#path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
+root_dir_for_tcga_tiles: "/home/yonis/full-kather-msi-tiles/tiled_data_large/"
+path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_test.csv"
+pretrain: False 
+load_patient_level_tensors: True
+
+data_pretrain_fraction: 0.1
+data_testing_balance_training_data: False
+data_testing_train_fraction: 1
+data_testing_test_fraction: 1
+
+data_create_feature_vectors_fraction: 0.1
+
+
+# model options
+resnet: "resnet18" # the backbone to be used by SimCLR: resnet18, resnet50, shufflenetv2_x1_0
+normalize: True
+projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space" only used for 
+
+# supervised or unsupservised learning?
+feature_learning: "unsupervised"
+projection_hidden: 128      # only used for supervised feature learning
+
+# loss options
+optimizer: "Adam" # or LARS (experimental)
+weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
+temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
+
+# reload options
+reload_model: False
+model_path: "logs/pretrain/41" # set to the directory containing `checkpoint_##.tar` 
+epoch_num: 90 # set to checkpoint number
+ 
+# mixed-precision training
+fp16: False 
+fp16_opt_level: "O2"
+
+# testing options
+logistic_extractor: 'simclr' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
+classification_head: 'deepmil' # or 'logistic' or 'deepmil'
+logistic_batch_size: 1 
+logistic_epochs: 10
+deepmil_lr: 0.0005
+deepmil_reg: 10.0e-5
+precompute_features: False
+precompute_features_in_memory: False 
+use_precomputed_features: True
+use_precomputed_features_id: '395'
+freeze_encoder: True
+evaluate_every: 1
+validation_split: 0.2
+
+use_focal_loss: False
+focal_loss_alpha: 1
+focal_loss_gamma: 2

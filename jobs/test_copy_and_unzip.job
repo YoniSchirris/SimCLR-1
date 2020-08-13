@@ -1,0 +1,48 @@
+#!/bin/bash
+#SBATCH --job-name=test_unzip
+#SBATCH --tasks-per-node=1
+#SBATCH --cpus-per-task=6
+#SBATCH --partition=normal
+#SBATCH --ntasks=1
+#SBATCH --time=1:00:00
+
+# moved into jobs/msi dir, nothing should change besides this
+
+#rsync -a -progress=info2 --exclude json --files-from= . /scratch/
+INCLUDEFILE=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/train_paths.txt
+
+module purge
+module load 2019
+
+module load Anaconda3
+module load CUDA/10.0.130
+module load cuDNN/7.6.3-CUDA-10.0.130
+export LD_LIBRARY_PATH=/hpc/eb/Debian9/cuDNN/7.6.3-CUDA-10.0.130/lib64:$LD_LIBRARY_PATH
+
+CONDA_PREFIX=$(conda info --base)
+source $CONDA_PREFIX/etc/profile.d/conda.sh
+conda activate thesisp375
+
+ORIGINAL_DATA_PATH=/home/yonis/tcga_breast_ddr/ # please don't forget the trailing /. or do /home/yonis/<theone>/tiled_data_large ... without a /
+
+ls "$TMPDIR"
+mkdir "$TMPDIR"/brca
+cd ..
+echo "starting to copy to scratch..."
+date
+cp /home/yonis/tcga_breast_ddr/tiled_data_large.tar.gz $TMPDIR/brca/
+echo "Copying done..."
+date
+echo "Starting unzip"
+cd $TMPDIR/brca
+tar xzf tiled_data_large.tar.gz
+echo "unzipe done"
+date
+#rsync -a -progress=info2 --exclude "json" $ORIGINAL_DATA_PATH "$TMPDIR"
+#rsync -a -progress=info2 --exclude "json" --files-from=$INCLUDEFILE $ORIGINAL_DATA_PATH "$TMPDIR"
+#rsync -ah --delete --ignore-existing --exclude "*.pt" $ORIGINAL_DATA_PATH "$TMPDIR"/
+echo "done with copying to scratch..."
+date
+ls
+ls "$TMPDIR"
+

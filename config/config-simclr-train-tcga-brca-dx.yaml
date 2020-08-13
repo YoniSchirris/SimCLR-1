@@ -1,0 +1,72 @@
+# train options
+seed: 42 # sacred handles automatic seeding when passed in the config
+batch_size: 128
+workers: 16
+start_epoch: 0
+epochs: 100
+kfold: 1
+
+#Data options
+dataset: "msi-tcga" # STL10
+#path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
+#path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
+root_dir_for_tcga_tiles: "/home/yonis/tcga_breast_ddr/tiled_data_large/"
+path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv"
+path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_test.csv"
+
+pretrain: True 
+load_patient_level_tensors: True
+
+data_pretrain_fraction: 1
+data_testing_balance_training_data: False
+data_testing_train_fraction: 0.6
+data_testing_test_fraction: 0.6
+
+data_create_feature_vectors_fraction: 0.1
+
+
+# model options
+resnet: "shufflenetv2_x1_0" # the backbone to be used by SimCLR: resnet18, resnet50, shufflenetv2_x1_0
+normalize: True
+projection_dim: 128 # "[...] to project the representation to a 128-dimensional latent space" only used for 
+
+# supervised or unsupservised learning?
+feature_learning: "unsupervised"
+unsupervised_method: "simclr"
+projection_hidden: 128      # only used for supervised feature learning
+save_each_epochs: 5
+
+
+
+# loss options
+optimizer: "Adam" # or LARS (experimental)
+weight_decay: 1.0e-6 # "optimized using LARS [...] and weight decay of 10e-6"
+temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch sizes
+
+# reload options
+reload_model: False
+model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
+epoch_num: 90 # set to checkpoint number
+ 
+# mixed-precision training
+fp16: False 
+fp16_opt_level: "O2"
+
+# testing options
+logistic_extractor: 'imagenet-resnet50' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
+classification_head: 'logistic' # or 'logistic' or 'deepmil'
+logistic_batch_size: 256
+logistic_epochs: 500
+deepmil_lr: 0.0005
+deepmil_reg: 10.0e-5
+precompute_features: True
+precompute_features_in_memory: True
+use_precomputed_features: True
+use_precomputed_features_id: '1'
+freeze_encoder: True
+ddr_label: ''
+
+
+use_focal_loss: False
+focal_loss_alpha: 1
+focal_loss_gamma: 2

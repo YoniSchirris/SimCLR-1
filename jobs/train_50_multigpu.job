@@ -1,0 +1,27 @@
+#!/bin/bash
+
+#SBATCH --job-name=janne_script
+#SBATCH -N 1
+#SBATCH --partition=gpu
+#SBATCH --time=10:00:00
+#SBATCH --mem=62G
+
+# moved into jobs/msi dir, nothing should change besides this
+
+module purge
+module load 2019
+
+module load Anaconda3
+module load CUDA/10.0.130
+module load cuDNN/7.6.3-CUDA-10.0.130
+export LD_LIBRARY_PATH=/hpc/eb/Debian9/cuDNN/7.6.3-CUDA-10.0.130/lib64:$LD_LIBRARY_PATH
+
+CONDA_PREFIX=$(conda info --base)
+source $CONDA_PREFIX/etc/profile.d/conda.sh
+conda activate thesisp375
+
+cd ..
+
+srun python3 -u main.py with data_pretrain_fraction=1 
+
+#srun python3 -u train.py --single_gpu --name=stadlr56 --batch_size=256 --run_times=3 --epochs=100 --freeze_num=0 --evaluate_every=256 --eval_patience=3 --data=msidata/stad --save_model=True --track_tb=True --learning_rate=5e-6 --weight_decay=1e-4 --learning_rate_factor=2 --seedstart=1

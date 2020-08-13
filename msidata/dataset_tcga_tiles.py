@@ -54,12 +54,11 @@ class TiledTCGADataset(Dataset):
 
         self.csv_file = csv_file
         self.root_dir = root_dir
-
         if dataset == 'msi-tcga':
             with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/kather/kather_msi_dot_id_to_tcga_id.json') as f:
                 self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
-
+        print(f"Successfully loaded labels from {csv_file}, it has {len(self.labels.index)} files.")
         if split:
             if split_num == 0 and split == 'train': # We want the train set, but not a specific fold... so we take all non-test data
                 self.labels = self.labels[~self.labels[f'test']==1].reset_index() # We train unsupervised on all training data, instead of only specific folds. We don't look at test data, though!
@@ -69,9 +68,11 @@ class TiledTCGADataset(Dataset):
                 elif split == 'test': # We want all test data
                     append = ''
                 self.labels = self.labels[self.labels[f'{split}{append}']==1].reset_index()
+            print(f"We use a {split} split of fold {split_num} of {len(self.labels.index)} files.")
             
         if self.tensor_per_patient:
             self.labels = self.labels.groupby('case').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
+            print(f"Finally, we use a tensor per patient, meaning we now have {len(self.labels.index)} files.")
 
         self.transform = transform
 
@@ -90,7 +91,7 @@ class TiledTCGADataset(Dataset):
         if self.label:
             label=row[self.label]
         else:
-            label=None
+            label=[]
 
         # case_id = str(self.labels.at[idx, "case"])
         # dot_id = self.labels.at[idx, "dot_id"]
