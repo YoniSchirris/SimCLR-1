@@ -1,0 +1,31 @@
+#!/bin/bash
+
+#SBATCH --job-name=simclrstadonstad
+#SBATCH -N 1
+#SBATCH --partition=gpu_shared
+#SBATCH --gres=gpu:1
+#SBATCH --time=1:00:00
+#SBATCH --array=3-27
+#SBATCH --mem=11G
+
+# moved into jobs/msi dir, nothing should change besides this
+
+module purge
+module load 2019
+
+module load Anaconda3
+module load CUDA/10.0.130
+module load cuDNN/7.6.3-CUDA-10.0.130
+export LD_LIBRARY_PATH=/hpc/eb/Debian9/cuDNN/7.6.3-CUDA-10.0.130/lib64:$LD_LIBRARY_PATH
+
+CONDA_PREFIX=$(conda info --base)
+source $CONDA_PREFIX/etc/profile.d/conda.sh
+conda activate thesisp375
+
+cd ..
+
+HPARAMS_FILE=/home/yonis/SimCLR-1/jobs/test_stad_batch_size_and_epoch_checkpoints.txt
+
+srun python3 -u -m testing.logistic_regression with config_file=./config/config-array-stad-simclr-on-stad.yaml \
+$(head -$SLURM_ARRAY_TASK_ID $HPARAMS_FILE | tail -1)
+#srun python3 -u train.py --single_gpu --name=stadlr56 --batch_size=256 --run_times=3 --epochs=100 --freeze_num=0 --evaluate_every=256 --eval_patience=3 --data=msidata/stad --save_model=True --track_tb=True --learning_rate=5e-6 --weight_decay=1e-4 --learning_rate_factor=2 --seedstart=1

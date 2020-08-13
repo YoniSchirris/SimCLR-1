@@ -1,0 +1,47 @@
+#!/bin/bash
+
+
+#SBATCH --job-name=performance_of_simclr_on_tcga
+#SBATCH --tasks-per-node=1
+#SBATCH --cpus-per-task=12
+#SBATCH --partition=gpu_shared
+#SBATCH --ntasks=1
+#SBATCH --gres=gpu:1
+#SBATCH --time=4:00:00
+# moved into jobs/msi dir, nothing should change besides this
+
+module purge
+module load 2019
+
+module load Anaconda3
+module load CUDA/10.0.130
+module load cuDNN/7.6.3-CUDA-10.0.130
+export LD_LIBRARY_PATH=/hpc/eb/Debian9/cuDNN/7.6.3-CUDA-10.0.130/lib64:$LD_LIBRARY_PATH
+
+CONDA_PREFIX=$(conda info --base)
+source $CONDA_PREFIX/etc/profile.d/conda.sh
+conda activate thesisp375
+
+cd ..
+
+# VARIABLES
+INCLUDEFILE=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/paths_for_train_and_test.txt
+ORIGINAL_DATA_PATH=/home/yonis/full-kather-msi-tiles
+TMP_PARENT_DIR_FOR_DATA=msidata # is required for the msi dataset to know the task
+
+echo "starting to copy to scratch..."
+date
+#rsync -a -progress=info2 --exclude "json" --files-from=$INCLUDEFILE $ORIGINAL_DATA_PATH "$TMPDIR"
+#rsync -ah --delete --ignore-existing --exclude "*.pt" $ORIGINAL_DATA_PATH "$TMPDIR"/
+echo "done with copying to scratch..."
+date
+ls "$TMPDIR"
+
+num_workers=$(nproc --all)
+echo "Num threads: $num_workers"
+
+#srun python3 -u -m testing.logistic_regression with workers=$num_workers config_file=./config/test-tcga-crc-4gpu.yaml root_dir_for_tcga_tiles="$TMPDIR"/tiled_data_large/ use_multi_gpu=False pretrain=False
+srun python3 -u -m testing.logistic_regression with workers=$num_workers config_file=./config/test-tcga-crc-1gpu.yaml use_multi_gpu=False pretrain=False precompute_features=True precompute_features_in_memory=False
+
+
+#rsync -a -progress=info2 --ignore-existing --exclude="*.jpg" "$TMPDIR"/tiled_data_large/ "$ORIGINAL_DATA_PATH"/tiled_data_large/ 
