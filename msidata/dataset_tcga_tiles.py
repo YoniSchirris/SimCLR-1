@@ -25,7 +25,7 @@ class TiledTCGADataset(Dataset):
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
     def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, 
-                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None):
+                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga'):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -36,6 +36,7 @@ class TiledTCGADataset(Dataset):
         self.split_num=1 # Which k-fold for train-val split?
         self.split = split
         self.label=label
+        self.dataset = dataset
 
         # self.labels = pd.read_csv(csv_file)
         self.precomputed=precomputed
@@ -53,8 +54,10 @@ class TiledTCGADataset(Dataset):
 
         self.csv_file = csv_file
         self.root_dir = root_dir
-        with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/kather/kather_msi_dot_id_to_tcga_id.json') as f:
-            self.dot_id_to_tcga_id = json.load(f)
+
+        if dataset == 'msi-tcga':
+            with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/kather/kather_msi_dot_id_to_tcga_id.json') as f:
+                self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
 
         if split:
@@ -105,7 +108,10 @@ class TiledTCGADataset(Dataset):
                                     f'tile{tile_num}{self.append_with}'
                                     )
             
-            patient_id = self.dot_id_to_tcga_id[dot_id].split('-')[2]
+            if self.dataset == 'msi-tcga':
+                patient_id = self.dot_id_to_tcga_id[dot_id].split('-')[2]
+            elif self.dataset == 'basis':
+                patient_id = row['case'].lstrip('case-')
         else:
             img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                     f"pid_{case_id}_tile_vectors_extractor_{self.precomputed_from_run}.pt")
