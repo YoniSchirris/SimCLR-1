@@ -128,6 +128,12 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             acc = (predicted == y).sum().item() / y.size(0)
             loss_epoch += loss.item()
 
+        elif args.classification_head == 'linear':
+            output = model(x) # output \in R^(batch_size*1)
+            loss = criterion(output, y)
+            loss_epoch += loss.item() 
+            acc = 0 # accuracy is not meaningful here
+            
         elif args.classification_head == 'deepmil':
             y = y.long() # Might be a float if we use TCGA since we do a groupby.mean() operation
             Y_prob, Y_hat, A = model.forward(x)
@@ -154,13 +160,20 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, val_loader, extractor, model, criterion, optimizer)
             val_losses.append(val_loss / len(val_loader))
 
-            # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
-            # If we use a tile-level prediciton, group and mean create a fraction prediction
-            val_data, rocauc = compute_roc_auc(val_patients, val_labels, val_preds)
-            writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
-            writer.add_scalar("rocauc/val", rocauc, epoch)
-            val_roc.append(rocauc)
-
+            if args.classification_head not in ['linear', 'linear-deepmil']:
+                # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
+                # If we use a tile-level prediciton, group and mean create a fraction prediction
+                val_data, rocauc = compute_roc_auc(val_patients, val_labels, val_preds)
+                writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
+                writer.add_scalar("rocauc/val", rocauc, epoch)
+                val_roc.append(rocauc)
+            else:
+                # COMPUTE R2 PER PATIENT.
+                val_data, r2 = compute_r2(val_patients, val_labels, val_preds)
+                writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
+                writer.add_scalar("r2/val", r2, epoch)
+                val_roc.append(r2)
+                
             # Save model with each evaluation
             args.global_step = global_step
             if extractor:
@@ -222,6 +235,15 @@ def validate(args, loader, extractor, model, criterion, optimizer):
 
                 predicted = output.argmax(1)
                 acc = (predicted == y).sum().item() / y.size(0)
+                loss_epoch += loss.item()
+                preds += predicted.cpu().tolist()
+
+        elif args.classification_head == 'linear':
+            with torch.no_grad():
+                output = model(x)
+                loss = criterion(output, y)
+                predicted = output
+                acc = 0 # meaningless for linear regression
                 loss_epoch += loss.item()
                 preds += predicted.cpu().tolist()
 
@@ -385,6 +407,14 @@ def compute_roc_auc(patients, labels, preds):
     rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
     return data, rocauc
 
+def compute_r2(patients, labels, preds):
+    data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+    dfgroup = data.groupby(['patient']).mean() # Let's just try taking the mean of all the tile predictions.. for now.. if it's linear-deepmil this will keep them as is
+    labels = dfgroup['labels'].values # all continues values
+    preds = dfgroup['preds'].values # all continues values
+    r2=metrics.r2_score(y_true=labels, y_score=preds)
+    return data, r2
+
 @ex.automain
 def main(_run, _log):
     args = argparse.Namespace(**_run.config)
@@ -489,8 +519,7 @@ def main(_run, _log):
         print("===== Encoder is NOT frozen =====")
         extractor.train()
 
-    ## Logistic Regression
-    n_classes = 2  # MSI VS MSS
+    
     
     # Get number of features that feature extractor produces
     if args.logistic_extractor == 'simclr':
@@ -499,18 +528,26 @@ def main(_run, _log):
         # We returned n_features in load_model()..
         pass
     else:
-        n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclr_v1_x1_0': 1024}[args.logistic_extractor]
+        n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclrv2_x1_0': 1024}[args.logistic_extractor]
+
+    if 'linear' in args.classification_head:
+        n_classes = 1 # Doing linear regression
+        criterion = torch.nn.MSELoss()
+    else:
+        n_classes = 2 # Doing logistic regression
+        criterion = torch.nn.CrossEntropyLoss() #TODO add class balance
 
     ## Get Classifier
-    if args.classification_head == 'logistic':
+    if args.classification_head == 'logistic' or args.classification_head == 'linear':
+        ## Logistic Regression
         model = LogisticRegression(n_features, n_classes)
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.logistic_lr)
         else:
             optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.logistic_lr)
-    
-    elif args.classification_head == 'deepmil':
-        model = Attention(hidden_dim=n_features)
+
+    elif args.classification_head == 'deepmil' or args.classification_head == 'linear-deepmil':
+        model = Attention(hidden_dim=n_features, num_classes=n_classes)
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
         else:
@@ -520,12 +557,9 @@ def main(_run, _log):
         print(f"{args.classification_head} has not been implemented as classification head")
         raise NotImplementedError
 
-        
     model = model.to(args.device)
-
     print(model)
     
-    criterion = torch.nn.CrossEntropyLoss() #TODO Add class balance
 
     ### ============= GET THE CORRECT DATA LOADERS =============  ###
 
@@ -574,7 +608,8 @@ def main(_run, _log):
         )
      
 
-    ### ============ Precompute and/or load precomputed features ============= ####
+    ### ============ Precompute and/or load precomputed features ============= ###
+
     if args.precompute_features:
         # We need the image loader defined above 
    
@@ -622,6 +657,7 @@ def main(_run, _log):
 
 
     ### ============= TRAINING =============  ###
+
     val_losses = []
     val_roc = []
     global_step = 0
@@ -630,11 +666,13 @@ def main(_run, _log):
         loss_epoch, accuracy_epoch, val_losses, val_roc, global_step = train(args, arr_train_loader, arr_val_loader, extractor, model, criterion, optimizer, val_losses, val_roc, global_step, epoch, writer)
         writer.add_scalar("loss/train", loss_epoch / len(arr_train_loader), epoch)
 
+
     ### ============= TESTING =============  ###
+
     if not 'best_model_evaluation' in vars(args).keys():
         args.best_model_evaluation = 'auc'
 
-    if args.best_model_evaluation == 'auc':
+    if args.best_model_evaluation == 'auc' or args.best_model_evaluation == 'r2': # r2 for linear regression, which is saved in the roc array
         # This seems like it would make most sense for the logistic regression (tile-level prediction & majority vote)
         best_model_num = np.argmax(val_roc)
     elif args.best_model_evaluation == 'loss':
@@ -655,15 +693,36 @@ def main(_run, _log):
         args, arr_test_loader, extractor, model, criterion, optimizer
     )
 
-    final_data, rocauc = compute_roc_auc(patients, labels, preds)
+
+    ### ============= Compute final metrics and write them to tensorboard ============= ###
+
+    writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
+    if 'linear' not in args.classification_head:
+        # Logistic regression, using ROC AUC as metric
+        final_data, rocauc = compute_roc_auc(patients, labels, preds)
+        writer.add_scalar("rocauc/test", rocauc)
+        write_hparams(writer, args, {'hparam/rocauc': rocauc })
+        _run.log_scalar('test/rocauc', rocauc, 0)
+        print(
+            f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
+        )
+    else:
+        # Linear regression, using R2 score as metric
+        final_data, r2 = compute_r2(patients, labels, preds)
+        writer.add_scalar("r2/test", r2)
+        write_hparams(writer, args, {'hparam/r2': r2 })
+        _run.log_scalar('test/r2', r2, 0)
+        print(
+            f"======\n[Final test with best model]\t R2: {r2} \t Loss: {loss_epoch / len(arr_test_loader)}\t"
+        )
+
+
+    ### ============= Save the predictions ============= ###
+
     humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
     print(f'This is the out dir {args.out_dir}')
     final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
-    writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
-    writer.add_scalar("rocauc/test", rocauc)
-    write_hparams(writer, args, {'hparam/rocauc': rocauc })
-    _run.log_scalar('test/rocauc', rocauc, 0)
-    print(
-        f"======\n[Final test with best model]\t ROCAUC: {rocauc} \t Loss: {loss_epoch / len(arr_test_loader)}\t Accuracy: {accuracy_epoch / len(arr_test_loader)}"
-    )
+
+    
+    
 

@@ -49,7 +49,14 @@ class Attention(nn.Module):
         M = torch.mm(A, H)  # KxL
 
         Y_out = self.classifier(M)
-        Y_hat = Y_out.softmax(dim=1).argmax() # take softmax over each batch. In this case, we have batch = 1
+
+        if self.num_classes > 1:
+            # When doing logistic regression
+            Y_hat = Y_out.softmax(dim=1).argmax() # take softmax over each batch. In this case, we have batch = 1
+        else:
+            # When doing linear regression
+            Y_hat = Y_out
+
         return Y_out, Y_hat, A
 
     # internal function to extract grad

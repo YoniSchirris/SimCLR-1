@@ -59,7 +59,7 @@ fp16_opt_level: "O2"
 
 # testing options
 logistic_extractor: 'imagenet-resnet50' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
-classification_head: 'logistic' # or 'logistic' or 'deepmil'
+classification_head: 'linear' # or 'logistic' or 'deepmil' or 'linear'
 logistic_batch_size: 256
 logistic_epochs: 500
 deepmil_lr: 0.0005
