@@ -528,7 +528,7 @@ def main(_run, _log):
         # We returned n_features in load_model()..
         pass
     else:
-        n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-simclrv2_x1_0': 1024}[args.logistic_extractor]
+        n_features = {'imagenet-resnet18': 512, 'imagenet-resnet50': 2048, 'imagenet-shufflenetv2_x1_0': 1024}[args.logistic_extractor]
 
     if 'linear' in args.classification_head:
         n_classes = 1 # Doing linear regression
