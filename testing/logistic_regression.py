@@ -143,6 +143,13 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             error, _ = model.calculate_classification_error(y, Y_hat)
             acc = 1. - error
 
+        elif args.classification_head == 'linear-deepmil':
+            Y_prob, Y_hat, A = model.forward(x) # Y_prob == Y_hat, in the linear case
+            loss = criterion(Y_prob, y)
+            train_loss = loss.item()
+            loss_epoch += train_loss
+            acc = 0 # meaningless here
+
         if not args.freeze_encoder and args.debug:
             previous_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
 
@@ -258,6 +265,15 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 acc = 1. - error        
                 binary_Y_prob = Y_prob.softmax(dim=1)[0][1]
                 preds.append(binary_Y_prob.item())       
+
+        elif args.classification_head == 'linear-deepmil':
+            with torch.no_grad():
+                Y_prob, Y_hat, A = model.forward(x)
+                loss = criterion(Y_prob, y)
+                train_loss = loss.item()
+                loss_epoch += train_loss
+                acc = 0
+                preds.append(Y_prob.item())      
 
         accuracy_epoch += acc
         labels += y.cpu().tolist()
