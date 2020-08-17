@@ -107,8 +107,9 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
         relative_dir = relative_img_paths_dirs[0] # Fine, since all are the same
 
         filename = os.path.join(root_dir, relative_dir, f'pid_{patient_id}_tile_vectors_extractor{append_with}.pt')
+        paths_filename = os.path.join(root_dir, relative_dir, f"pid_{patient_id}_tile_vector_paths_extractor{append_with}.pt")
         torch.save(vectors, filename)
-        torch.save(relative_img_paths, f"pid_{patient_id}_tile_vector_paths_extractor{append_with}.pt")
+        torch.save(relative_img_paths, paths_filename)
         print(f'Saving {filename}')
 
 
