@@ -70,7 +70,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
 
 
-def aggregate_patient_vectors(args, root_dir, append_with=''):
+def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
     print(f"## Aggregating vectors per patient in {root_dir}")
     if args.dataset == "msi-kather":
         data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
@@ -92,7 +92,7 @@ def aggregate_patient_vectors(args, root_dir, append_with=''):
     for patient_id in data[patient_column].unique():
     
         relative_img_paths = data[data[patient_column]==patient_id]['img']
-        
+
         vectors = torch.stack([torch.load(os.path.join(root_dir, vector_path.replace(extension,f'{append_with}.pt')), map_location='cpu') for vector_path in relative_img_paths])
 
         if args.dataset == 'msi-kather':
@@ -108,6 +108,7 @@ def aggregate_patient_vectors(args, root_dir, append_with=''):
 
         filename = os.path.join(root_dir, relative_dir, f'pid_{patient_id}_tile_vectors_extractor{append_with}.pt')
         torch.save(vectors, filename)
+        torch.save(relative_img_paths, f"pid_{patient_id}_tile_vector_paths_extractor{append_with}.pt")
         print(f'Saving {filename}')
 
 
