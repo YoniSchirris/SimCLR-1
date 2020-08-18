@@ -129,8 +129,8 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             loss_epoch += loss.item()
 
         elif args.classification_head == 'linear':
-            output = model(x) # output \in R^(batch_size*1)
-            loss = criterion(output, y)
+            output = model(x).flatten() # output \in R^(batch_size*1)
+            loss = criterion(output.flatten(), y.flatten())
             loss_epoch += loss.item() 
             acc = 0 # accuracy is not meaningful here
             
@@ -145,7 +145,8 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
 
         elif args.classification_head == 'linear-deepmil':
             Y_prob, Y_hat, A = model.forward(x) # Y_prob == Y_hat, in the linear case
-            loss = criterion(Y_prob, y)
+            y = y.flatten() # shape([1, 1]) -> shape([1])
+            loss = criterion(Y_prob.flatten(), y.flatten())
             train_loss = loss.item()
             loss_epoch += train_loss
             acc = 0 # meaningless here
@@ -174,12 +175,14 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
                 writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
                 writer.add_scalar("rocauc/val", rocauc, epoch)
                 val_roc.append(rocauc)
+                print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tROC AUC: {rocauc}")
             else:
                 # COMPUTE R2 PER PATIENT.
                 val_data, r2 = compute_r2(val_patients, val_labels, val_preds)
                 writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
                 writer.add_scalar("r2/val", r2, epoch)
                 val_roc.append(r2)
+                print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tR2: {r2}")
                 
             # Save model with each evaluation
             args.global_step = global_step
@@ -189,7 +192,6 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             # Save classification model, which is the primary model being trained here
             save_model(args, model, None, prepend='classifier_')
         
-            print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tROC AUC: {rocauc}")
 
     return loss_epoch, accuracy_epoch, val_losses, val_roc, global_step
 
@@ -247,8 +249,8 @@ def validate(args, loader, extractor, model, criterion, optimizer):
 
         elif args.classification_head == 'linear':
             with torch.no_grad():
-                output = model(x)
-                loss = criterion(output, y)
+                output = model(x).flatten()
+                loss = criterion(output.flatten(), y.flatten())
                 predicted = output
                 acc = 0 # meaningless for linear regression
                 loss_epoch += loss.item()
@@ -269,7 +271,8 @@ def validate(args, loader, extractor, model, criterion, optimizer):
         elif args.classification_head == 'linear-deepmil':
             with torch.no_grad():
                 Y_prob, Y_hat, A = model.forward(x)
-                loss = criterion(Y_prob, y)
+                y = y.flatten() # torch.size([1,1]) -> torch.size([1])
+                loss = criterion(Y_prob.flatten(), y.flatten())
                 train_loss = loss.item()
                 loss_epoch += train_loss
                 acc = 0
@@ -428,7 +431,7 @@ def compute_r2(patients, labels, preds):
     dfgroup = data.groupby(['patient']).mean() # Let's just try taking the mean of all the tile predictions.. for now.. if it's linear-deepmil this will keep them as is
     labels = dfgroup['labels'].values # all continues values
     preds = dfgroup['preds'].values # all continues values
-    r2=metrics.r2_score(y_true=labels, y_score=preds)
+    r2=metrics.r2_score(y_true=labels, y_pred=preds)
     return data, r2
 
 @ex.automain
