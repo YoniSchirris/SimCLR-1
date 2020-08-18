@@ -294,6 +294,9 @@ def validate(args, loader, extractor, model, criterion, optimizer):
 def get_precomputed_dataloader(args, run_id):
     print(f"### Loading precomputed feature vectors from run id:  {run_id} ####")
 
+    if args.dataset == 'msi-tcga':
+        assert ('load_wsi_level_tensors' in vars(args).keys()), "For TCGA we switched to WSI-level tensors. Please add 'load_wsi_level_tensors' (bool) to your config file"
+
     assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
 
     if args.load_patient_level_tensors:
@@ -330,8 +333,7 @@ def get_precomputed_dataloader(args, run_id):
             transform=None,
             precomputed=True,
             precomputed_from_run=run_id,
-            sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors,
+            tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
             split='train'
@@ -342,8 +344,7 @@ def get_precomputed_dataloader(args, run_id):
             transform=None,
             precomputed=True,
             precomputed_from_run=run_id,
-            sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors,
+            tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
             split='test'
@@ -354,8 +355,7 @@ def get_precomputed_dataloader(args, run_id):
             transform=None,
             precomputed=True,
             precomputed_from_run=run_id,
-            sampling_strategy=sampling_strategy,
-            tensor_per_patient=args.load_patient_level_tensors,
+            tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
             split='val'

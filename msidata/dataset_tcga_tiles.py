@@ -24,7 +24,7 @@ class TiledTCGADataset(Dataset):
     """Dataset class for tiled WSIs from TCGA
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
-    def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, 
+    def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, tensor_per_wsi=False, load_tensor_grid=False,
                     precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga'):
         """
         Args:
@@ -33,6 +33,8 @@ class TiledTCGADataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+
+        assert (not tensor_per_patient), "tensor_per_patient is deprecated, please use tensor_per_wsi, as this makes more sense generally, especially for grids"
         self.split_num=1 # Which k-fold for train-val split?
         self.split = split
         self.label=label
@@ -50,7 +52,8 @@ class TiledTCGADataset(Dataset):
             self.append_with='.jpg'
 
         self.sampling_strategy=sampling_strategy        # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
-        self.tensor_per_patient=tensor_per_patient      # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
+        self.tensor_per_wsi=tensor_per_wsi      # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
+        self.load_tensor_grid = load_tensor_grid
 
         self.csv_file = csv_file
         self.root_dir = root_dir
@@ -70,8 +73,8 @@ class TiledTCGADataset(Dataset):
                 self.labels = self.labels[self.labels[f'{split}{append}']==1].reset_index()
             print(f"We use a {split} split of fold {split_num} of {len(self.labels.index)} files.")
             
-        if self.tensor_per_patient:
-            self.labels = self.labels.groupby('case').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
+        if self.tensor_per_wsi:
+            self.labels = self.labels.groupby('dot_id').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
             print(f"Finally, we use a tensor per patient, meaning we now have {len(self.labels.index)} files.")
 
         self.transform = transform
@@ -87,6 +90,7 @@ class TiledTCGADataset(Dataset):
         row = self.labels.iloc[idx]
 
         case_id = str(row['case'])
+        dot_id = row['dot_id']
 
         if self.label:
             label=row[self.label]
@@ -100,9 +104,8 @@ class TiledTCGADataset(Dataset):
 
         # label= self.labels.at[idx, "msi"]
 
-        if not self.tensor_per_patient:
+        if not self.tensor_per_wsi:
             tile_num = row['num']
-            dot_id = row['dot_id']
             img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                     dot_id,
                                     'jpeg',
@@ -114,10 +117,14 @@ class TiledTCGADataset(Dataset):
             elif self.dataset == 'basis':
                 patient_id = row['case'].lstrip('case-')
         else:
-            img_name = os.path.join(self.root_dir, f'case-{case_id}',
-                                    f"pid_{case_id}_tile_vectors_extractor_{self.precomputed_from_run}.pt")
+            if not self.load_tensor_grid:
+                img_name = os.path.join(self.root_dir, f'case-{case_id}',
+                                        f"pid_{dot_id}_tile_vectors_extractor_{self.precomputed_from_run}.pt")
+            else:
+                img_name = os.path.join(self.root_dir, f'case-{case_id}',
+                                        f"pid_{dot_id}_tile_grid_extractor_{self.precomputed_from_run}.pt")
             patient_id = case_id
-        if self.precomputed or self.tensor_per_patient:
+        if self.precomputed or self.tensor_per_wsi:
             tile = torch.load(img_name, map_location='cpu')
         else:
             try:

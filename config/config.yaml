@@ -17,7 +17,8 @@ path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/me
 path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
 
 pretrain: True 
-load_patient_level_tensors: True
+load_patient_level_tensors: True # Only used for Kather data
+load_wsi_level_tensor: False # Now used for TCGA data (and also for BASIS as it used the same structure & loader)
 
 data_pretrain_fraction: 0.1
 data_testing_balance_training_data: False
@@ -25,6 +26,7 @@ data_testing_train_fraction: 0.6
 data_testing_test_fraction: 0.6
 
 data_create_feature_vectors_fraction: 0.1
+create_feature_grid: False
 
 
 # model options
