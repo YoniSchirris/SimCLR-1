@@ -74,7 +74,8 @@ class TiledTCGADataset(Dataset):
             print(f"We use a {split} split of fold {split_num} of {len(self.labels.index)} files.")
             
         if self.tensor_per_wsi:
-            self.labels = self.labels.groupby('dot_id').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
+            self.labels['case_dot'] = self.labels['case'] + '/' + self.labels['dot_id']
+            self.labels = self.labels.groupby('case_dot').mean().reset_index() # We end up with a single row per patient, and the mean of all labels, which is the label
             print(f"Finally, we use a tensor per patient, meaning we now have {len(self.labels.index)} files.")
 
         self.transform = transform
@@ -89,9 +90,7 @@ class TiledTCGADataset(Dataset):
 
         row = self.labels.iloc[idx]
 
-        case_id = str(row['case'])
-        dot_id = row['dot_id']
-
+        
         if self.label:
             label=row[self.label]
         else:
@@ -105,6 +104,9 @@ class TiledTCGADataset(Dataset):
         # label= self.labels.at[idx, "msi"]
 
         if not self.tensor_per_wsi:
+            case_id = str(row['case'])
+            dot_id = row['dot_id']
+
             tile_num = row['num']
             img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                     dot_id,
@@ -117,6 +119,8 @@ class TiledTCGADataset(Dataset):
             elif self.dataset == 'basis':
                 patient_id = row['case'].lstrip('case-')
         else:
+            case_dot = row['case_dot']
+            case_id, dot_id = case_dot.split('/')
             if not self.load_tensor_grid:
                 img_name = os.path.join(self.root_dir, f'case-{case_id}',
                                         f"pid_{dot_id}_tile_vectors_extractor_{self.precomputed_from_run}.pt")
