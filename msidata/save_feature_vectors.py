@@ -14,6 +14,7 @@ import torchvision
 import torchvision.transforms as transforms
 import argparse
 import numpy as np
+import json
 
 from experiment import ex
 from model import load_model
@@ -27,7 +28,6 @@ from msidata.dataset_msi import PreProcessedMSIDataset
 from msidata.dataset_tcga_tiles import TiledTCGADataset
 from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 
-from testing.logistic_regression import get_precomputed_dataloader
 
 
 import os
@@ -93,7 +93,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
 
         relative_img_paths = data[data[identifier] == idd]['img']
 
-        relative_tensor_paths = img_path.replace(extension, f'{append_with}.pt') for img_path in relative_img_paths
+        relative_tensor_paths = [img_path.replace(extension, f'{append_with}.pt') for img_path in relative_img_paths]
 
         if not grid:
             # We simply stack them. This is useful for DeepMIL
@@ -120,7 +120,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
 
             img_paths_and_coords = (relative_img_paths, coords)
 
-            shape_for_patient_grid = list(np.amax(coords, axis=0))
+            shape_for_patient_grid = list(np.amax(coords, axis=0) + 1) # If max index if 80, we want a tensor of size 81
             shape_for_patient_grid.append(num_features)
 
             patient_grid = torch.zeros(tuple(shape_for_patient_grid))
