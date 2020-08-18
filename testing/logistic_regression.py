@@ -151,6 +151,14 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             loss_epoch += train_loss
             acc = 0 # meaningless here
 
+        elif args.classification_head == 'cnn':
+            y = y.long()
+            out = model.forward(x)
+            loss = criterion(out, y)
+            predicted = output.argmax(1)
+            acc = (predicted == y).sum().item() / y.size(0)
+            loss_epoch += loss.item()
+
         if not args.freeze_encoder and args.debug:
             previous_weights_of_last_layer = [param.clone().detach() for param in extractor.parameters()][-2]
 
@@ -276,7 +284,16 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 train_loss = loss.item()
                 loss_epoch += train_loss
                 acc = 0
-                preds.append(Y_prob.item())      
+                preds.append(Y_prob.item())  
+
+        elif args.classification_head == 'cnn':
+            with torch.no_grad():
+                y = y.long()
+                out = model.forward(x)
+                loss = criterion(out, y)
+                predicted = output.argmax(1)
+                acc = (predicted == y).sum().item() / y.size(0)
+                loss_epoch += loss.item()
 
         accuracy_epoch += acc
         labels += y.cpu().tolist()
@@ -572,6 +589,16 @@ def main(_run, _log):
         else:
             optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
     
+    elif args.classification_head == 'cnn':
+        # For now using resnet18 as this can handle variable size input due to the avg pool
+        # If we use batch_size = 1 we can test it all. If it works, we can think of a way to deal with this
+        model = torchvision.models.resnet18()
+        model.fc = nn.Linear(model.fc.in_features, num_classes) 
+        if args.freeze_encoder:
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+        else:
+            optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
+
     else:
         print(f"{args.classification_head} has not been implemented as classification head")
         raise NotImplementedError
