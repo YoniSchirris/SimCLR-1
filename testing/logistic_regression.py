@@ -685,26 +685,36 @@ def main(_run, _log):
 
     ### ============= TESTING =============  ###
 
-    if not 'best_model_evaluation' in vars(args).keys():
-        args.best_model_evaluation = 'auc'
+    if args.logistic_epochs > 0:
+        # If we have run epochs in the current run, we will take the best model from the current run
+        if not 'best_model_evaluation' in vars(args).keys():
+            args.best_model_evaluation = 'auc'
 
-    if args.best_model_evaluation == 'auc' or args.best_model_evaluation == 'r2': # r2 for linear regression, which is saved in the roc array
-        # This seems like it would make most sense for the logistic regression (tile-level prediction & majority vote)
-        best_model_num = np.argmax(val_roc)
-    elif args.best_model_evaluation == 'loss':
-        # This is probably most sensible for patient-level prediction methods like deepmil
-        best_model_num = np.argmin(val_losses)
-    
-    best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
-
-    print(f'Validation ROCs: {val_roc}\nValidation loss: {val_losses}.\nBest performance by model @ epoch # {best_model_epoch}')
-
-    if extractor:
-        extractor_fp = os.path.join(args.out_dir, "extractor_checkpoint_{}.tar".format(best_model_epoch))
-        extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
-    model_fp = os.path.join(args.out_dir, "classifier_checkpoint_{}.tar".format(best_model_epoch))
-    model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+        if args.best_model_evaluation == 'auc' or args.best_model_evaluation == 'r2': # r2 for linear regression, which is saved in the roc array
+            # This seems like it would make most sense for the logistic regression (tile-level prediction & majority vote)
+            best_model_num = np.argmax(val_roc)
+        elif args.best_model_evaluation == 'loss':
+            # This is probably most sensible for patient-level prediction methods like deepmil
+            best_model_num = np.argmin(val_losses)
         
+        best_model_epoch = best_model_num * args.evaluate_every + args.evaluate_every
+
+        print(f'Validation ROCs: {val_roc}\nValidation loss: {val_losses}.\nBest performance by model @ epoch # {best_model_epoch}')
+
+        if extractor:
+            extractor_fp = os.path.join(args.out_dir, "extractor_checkpoint_{}.tar".format(best_model_epoch))
+            extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
+        model_fp = os.path.join(args.out_dir, "classifier_checkpoint_{}.tar".format(best_model_epoch))
+        model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+
+    else:
+        # If we haven't run any epochs, we will load the model from the given parameters
+        if extractor:
+            extractor_fp = os.path.join(args.model_path, "extractor_checkpoint_{}.tar".format(args.epoch_num))
+            extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
+        model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
+        model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+            
     loss_epoch, accuracy_epoch, labels, preds, patients = validate(
         args, arr_test_loader, extractor, model, criterion, optimizer
     )
