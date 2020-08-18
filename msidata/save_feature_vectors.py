@@ -75,11 +75,11 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
     print(f"## Aggregating vectors per patient in {root_dir}")
     if args.dataset == "msi-kather":
         data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
-        patient_column = 'patient_id'
+        identifier = 'patient_id' # We don't have clear information about separate WSIs, so we stack all tiles from a patient in a single tensor
         extension = '.png'
     elif args.dataset == "msi-tcga":
         data = pd.read_csv(root_dir)  # csv is given as root dir
-        patient_column = 'case'
+        identifier = 'dot_id'   # We have a clear dot_id per WSI, and will thus create a stack / grid for each WSI separately
         extension = '.jpg'
 
         # Creating ABSOLUTE image paths here
@@ -89,9 +89,9 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
                                                         f"tile{x['num']}{extension}"
                                                         ), axis=1)
 
-    for patient_id in data[patient_column].unique():
+    for idd in data[identifier].unique():    # id here 
 
-        relative_img_paths = data[data[patient_column] == patient_id]['img']
+        relative_img_paths = data[data[identifier] == idd]['img']
 
         relative_tensor_paths = img_path.replace(extension, f'{append_with}.pt') for img_path in relative_img_paths
 
@@ -152,15 +152,15 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
         # However, os.path.join removes the .csv, as it does not make sense. This is why it actually works.
         if grid:
             filename = os.path.join(
-                root_dir, relative_dir, f'pid_{patient_id}_tile_grid_extractor{append_with}.pt')
+                root_dir, relative_dir, f'pid_{idd}_tile_grid_extractor{append_with}.pt')
             paths_filename = os.path.join(
-                root_dir, relative_dir, f"pid_{patient_id}_tile_grid_paths_and_coords_extractor{append_with}.pt")
+                root_dir, relative_dir, f"pid_{idd}_tile_grid_paths_and_coords_extractor{append_with}.pt")
             torch.save(img_paths_and_coords, paths_filename)
         else:
             filename = os.path.join(
-                root_dir, relative_dir, f'pid_{patient_id}_tile_vectors_extractor{append_with}.pt')
+                root_dir, relative_dir, f'pid_{idd}_tile_vectors_extractor{append_with}.pt')
             paths_filename = os.path.join(
-                root_dir, relative_dir, f"pid_{patient_id}_tile_vector_paths_extractor{append_with}.pt")
+                root_dir, relative_dir, f"pid_{idd}_tile_vector_paths_extractor{append_with}.pt")
             torch.save(relative_img_paths, paths_filename)
 
         torch.save(vectors, filename)
