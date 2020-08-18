@@ -353,7 +353,8 @@ def get_precomputed_dataloader(args, run_id):
             tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
-            split='train'
+            split='train',
+            load_tensor_grid=args.load_tensor_grid
             )     
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
@@ -364,7 +365,8 @@ def get_precomputed_dataloader(args, run_id):
             tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
-            split='test'
+            split='test',
+            load_tensor_grid=args.load_tensor_grid
             )
         val_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
@@ -375,7 +377,8 @@ def get_precomputed_dataloader(args, run_id):
             tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
-            split='val'
+            split='val',
+            load_tensor_grid=args.load_tensor_grid
             )
 
     if args.dataset=='msi-kather':
