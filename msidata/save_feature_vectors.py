@@ -89,8 +89,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
                                                         f"tile{x['num']}{extension}"
                                                         ), axis=1)
 
-    for idd in data[identifier].unique():    # id here 
-
+    for idx, idd in enumerate(data[identifier].unique()):    # id here 
         relative_img_paths = data[data[identifier] == idd]['img']
 
         relative_tensor_paths = [img_path.replace(extension, f'{append_with}.pt') for img_path in relative_img_paths]
@@ -164,7 +163,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
             torch.save(relative_img_paths, paths_filename)
 
         torch.save(vectors, filename)
-        print(f'Saving {filename}')
+        print(f'[ {datetime.datetime.now()} ] \t [ {idx} / {len(data[identifier].unique())} ] \t Saving {filename}')
 
 
 def save_features(context_model, train_loader, test_loader, device, append_with=''):
