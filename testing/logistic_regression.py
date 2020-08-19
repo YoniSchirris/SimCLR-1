@@ -155,7 +155,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             y = y.long()
             out = model.forward(x)
             loss = criterion(out, y)
-            predicted = output.argmax(1)
+            predicted = out.argmax(1)
             acc = (predicted == y).sum().item() / y.size(0)
             loss_epoch += loss.item()
 
@@ -291,9 +291,10 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 y = y.long()
                 out = model.forward(x)
                 loss = criterion(out, y)
-                predicted = output.argmax(1)
+                predicted = out.argmax(1)
                 acc = (predicted == y).sum().item() / y.size(0)
                 loss_epoch += loss.item()
+                preds += predicted.cpu().tolist()
 
         accuracy_epoch += acc
         labels += y.cpu().tolist()
@@ -596,7 +597,12 @@ def main(_run, _log):
         # For now using resnet18 as this can handle variable size input due to the avg pool
         # If we use batch_size = 1 we can test it all. If it works, we can think of a way to deal with this
         model = torchvision.models.resnet18()
-        model.fc = nn.Linear(model.fc.in_features, num_classes) 
+        model.fc = torch.nn.Linear(model.fc.in_features, n_classes) 
+        # v--- this is the exact Conv2d line for conv1 found in the Resnet class
+        # Instead, we manually set the in_channels to 512 instead of 3.
+        # hardcoding out_channels=64 instead of model.inplanes because inplanes gets changed during initialization
+        model.conv1 = torch.nn.Conv2d(512, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
         else:

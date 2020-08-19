@@ -58,7 +58,7 @@ class TiledTCGADataset(Dataset):
         self.csv_file = csv_file
         self.root_dir = root_dir
         if dataset == 'msi-tcga':
-            with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/kather/kather_msi_dot_id_to_tcga_id.json') as f:
+            with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/tcga_crc_and_brca_dot_id_to_tcga_id.json') as f:
                 self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
         print(f"Successfully loaded labels from {csv_file}, it has {len(self.labels.index)} files.")
@@ -130,6 +130,25 @@ class TiledTCGADataset(Dataset):
             patient_id = case_id
         if self.precomputed or self.tensor_per_wsi:
             tile = torch.load(img_name, map_location='cpu')
+            if self.load_tensor_grid:
+            # the tile was initially saved as WxHxC, yet PyTorch wants CxWxH
+            # also, we add contiguous to make sure the bits are close to each other in memory
+                target_size=244
+                tile = tile.permute(2,0,1).contiguous()
+                w, h = tile.shape[-2:]
+                if w < target_size:
+                    pad_w = int((target_size-w)/2)+1 # int() floors, yet we want to get at least the target size
+                else:
+                    pad_w = 0
+                if h < target_size:
+                    pad_h = int((target_size-h)/2)+1
+                else:
+                    pad_h = 0
+                # Note that the padding argument in F.pad() pads up on either side, and the first arguments pads the last dimension. so
+                # (1,1) pads 1 on top and 1 on bottom of h
+                # (1,1,2,2) pads 1 top, 1 bottom on h,  2 left, 2 right on w
+                tile = torch.nn.functional.pad(tile, (pad_h, pad_h, pad_w, pad_w), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
+                
         else:
             try:
                 tile = io.imread(img_name)
