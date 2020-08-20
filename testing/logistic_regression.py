@@ -315,7 +315,7 @@ def get_precomputed_dataloader(args, run_id):
     if args.dataset == 'msi-tcga':
         assert ('load_wsi_level_tensors' in vars(args).keys()), "For TCGA we switched to WSI-level tensors. Please add 'load_wsi_level_tensors' (bool) to your config file"
 
-    assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
+    #assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
 
     if args.load_patient_level_tensors:
         sampling_strategy='patient'
