@@ -134,20 +134,23 @@ class TiledTCGADataset(Dataset):
             # the tile was initially saved as WxHxC, yet PyTorch wants CxWxH
             # also, we add contiguous to make sure the bits are close to each other in memory
                 target_size=244
-                tile = tile.permute(2,0,1).contiguous()
+                #tile = tile.permute(2,0,1).contiguous()
+                tile = tile.permute(2,0,1)
                 w, h = tile.shape[-2:]
                 if w < target_size:
-                    pad_w = int((target_size-w)/2)+1 # int() floors, yet we want to get at least the target size
+                    pad_w = target_size-w # int() floors, yet we want to get at least the target size
                 else:
                     pad_w = 0
                 if h < target_size:
-                    pad_h = int((target_size-h)/2)+1
+                    pad_h = target_size-h
                 else:
                     pad_h = 0
                 # Note that the padding argument in F.pad() pads up on either side, and the first arguments pads the last dimension. so
                 # (1,1) pads 1 on top and 1 on bottom of h
                 # (1,1,2,2) pads 1 top, 1 bottom on h,  2 left, 2 right on w
-                tile = torch.nn.functional.pad(tile, (pad_h, pad_h, pad_w, pad_w), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
+                # Here, we pad only on ONE side, to avoid any difficulties with an uneven difference between target and current
+                # Anyway, with any of the networks we use, the location will not matter. (CNN / GCNN)
+                tile = torch.nn.functional.pad(tile, (pad_h, 0, pad_w, 0), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
                 
         else:
             try:
