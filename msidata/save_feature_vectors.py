@@ -150,6 +150,14 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
         # Note that the root dir is a directory for msi-kather, but a .csv for msi-tcga
         # However, os.path.join removes the .csv, as it does not make sense. This is why it actually works.
         if grid:
+            # args.path_to_msi_data has `subsample_n` in its name if we have a subsample
+            # since we might save a grid for ALL tiles and a subsapmle, we require a different naming for both
+            # so we check if the path to msi data has 'subsample' in it, get 'n', and add this to the 
+            if 'subsample' in args.path_to_msi_data:
+                path_to_data = args.path_to_msi_data.split('_')
+                n = path_to_data[path_to_data.index('subsample')+1]
+                append_with += f"_subsample_{n}"
+
             filename = os.path.join(
                 root_dir, relative_dir, f'pid_{idd}_tile_grid_extractor{append_with}.pt')
             paths_filename = os.path.join(

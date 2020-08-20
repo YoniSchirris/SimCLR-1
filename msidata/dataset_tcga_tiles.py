@@ -121,12 +121,19 @@ class TiledTCGADataset(Dataset):
         else:
             case_dot = row['case_dot']
             case_id, dot_id = case_dot.split('/')
+            
+            if 'subsample' in self.csv_file:
+                path_to_data = self.csv_file.split('_')
+                n = path_to_data[path_to_data.index('subsample')+1]
+                append_aggregate_with = f"_subsample_{n}"
+            else:
+                append_aggregate_with = ""
             if not self.load_tensor_grid:
                 img_name = os.path.join(self.root_dir, f'case-{case_id}',
-                                        f"pid_{dot_id}_tile_vectors_extractor_{self.precomputed_from_run}.pt")
+                                        f"pid_{dot_id}_tile_vectors_extractor_{self.precomputed_from_run}{append_aggregate_with}.pt")
             else:
                 img_name = os.path.join(self.root_dir, f'case-{case_id}',
-                                        f"pid_{dot_id}_tile_grid_extractor_{self.precomputed_from_run}.pt")
+                                        f"pid_{dot_id}_tile_grid_extractor_{self.precomputed_from_run}{append_aggregate_with}.pt")
             patient_id = case_id
         if self.precomputed or self.tensor_per_wsi:
             tile = torch.load(img_name, map_location='cpu')
