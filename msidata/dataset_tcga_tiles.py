@@ -61,6 +61,14 @@ class TiledTCGADataset(Dataset):
             with open('/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/tcga_crc_and_brca_dot_id_to_tcga_id.json') as f:
                 self.dot_id_to_tcga_id = json.load(f)
         self.labels = pd.read_csv(csv_file, converters={'case': str})
+
+        if self.label:
+            original_tiles_with_labels = len(self.labels)
+            self.labels = self.labels.dropna(subset=[label])
+            new_tiles_with_labels = len(self.labels)
+            if original_tiles_with_labels != new_tiles_with_labels:
+                print(f"====== Removed {new_tiles_with_labels - original_tiles_with_labels} tiles as they did not have a label for {self.label}")
+
         print(f"Successfully loaded labels from {csv_file}, it has {len(self.labels.index)} files.")
         if split:
             if split_num == 0 and split == 'train': # We want the train set, but not a specific fold... so we take all non-test data
@@ -79,6 +87,17 @@ class TiledTCGADataset(Dataset):
             print(f"Finally, we use a tensor per patient, meaning we now have {len(self.labels.index)} files.")
 
         self.transform = transform
+
+    def create_graph_from_grid(self, grid: torch.tensor, graph_type: str) -> torch.tensor:
+        """Takes a grid of features and transforms it into a graph
+
+        Args:
+            grid (torch.tensor): Grid loaded from disk, holds the feature vectors in a spatial grid related to the WSI
+            graph_type (str): Argument specifying the type of graph to be returned. For now, only ['adj_matrix']. If we subsample 500 tiles, this will have 25,000 elements
+
+        Returns:
+            torch.tensor: Graph of specified type
+        """
 
     def __len__(self):
         full_data_len = len(self.labels.index)
