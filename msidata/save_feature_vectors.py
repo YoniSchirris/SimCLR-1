@@ -155,19 +155,21 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
             # so we check if the path to msi data has 'subsample' in it, get 'n', and add this to the 
             if 'subsample' in args.path_to_msi_data:
                 path_to_data = args.path_to_msi_data.split('_')
-                n = path_to_data[path_to_data.index('subsample')+1]
-                append_with += f"_subsample_{n}"
+                n = path_to_data[path_to_data.index('subsample')+1].rstrip('.csv')
+                append_with_ = append_with + f"_subsample_{n}"
+            else:
+                append_with_ = append_with
 
             filename = os.path.join(
-                root_dir, relative_dir, f'pid_{idd}_tile_grid_extractor{append_with}.pt')
+                root_dir, relative_dir, f'pid_{idd}_tile_grid_extractor{append_with_}.pt')
             paths_filename = os.path.join(
-                root_dir, relative_dir, f"pid_{idd}_tile_grid_paths_and_coords_extractor{append_with}.pt")
+                root_dir, relative_dir, f"pid_{idd}_tile_grid_paths_and_coords_extractor{append_with_}.pt")
             torch.save(img_paths_and_coords, paths_filename)
         else:
             filename = os.path.join(
-                root_dir, relative_dir, f'pid_{idd}_tile_vectors_extractor{append_with}.pt')
+                root_dir, relative_dir, f'pid_{idd}_tile_vectors_extractor{append_with_}.pt')
             paths_filename = os.path.join(
-                root_dir, relative_dir, f"pid_{idd}_tile_vector_paths_extractor{append_with}.pt")
+                root_dir, relative_dir, f"pid_{idd}_tile_vector_paths_extractor{append_with_}.pt")
             torch.save(relative_img_paths, paths_filename)
 
         torch.save(vectors, filename)
