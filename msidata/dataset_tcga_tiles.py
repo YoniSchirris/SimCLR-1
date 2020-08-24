@@ -25,7 +25,7 @@ class TiledTCGADataset(Dataset):
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
     def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, tensor_per_wsi=False, load_tensor_grid=False,
-                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga'):
+                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga', stack_grid=False):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -51,9 +51,10 @@ class TiledTCGADataset(Dataset):
         else:
             self.append_with='.jpg'
 
-        self.sampling_strategy=sampling_strategy        # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
-        self.tensor_per_wsi=tensor_per_wsi      # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
-        self.load_tensor_grid = load_tensor_grid
+        self.sampling_strategy=sampling_strategy    # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
+        self.tensor_per_wsi=tensor_per_wsi          # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
+        self.load_tensor_grid = load_tensor_grid    # Append filepath with specifics to load a grid of feature tensors
+        self.stack_grid = stack_grid                # Load a grid, remove spatial structure, remove 0-tensors, and pad it up
 
         self.csv_file = csv_file
         self.root_dir = root_dir
@@ -159,25 +160,38 @@ class TiledTCGADataset(Dataset):
             if self.load_tensor_grid:
             # the tile was initially saved as WxHxC, yet PyTorch wants CxWxH
             # also, we add contiguous to make sure the bits are close to each other in memory
-                target_size=244
-                #tile = tile.permute(2,0,1).contiguous()
-                tile = tile.permute(2,0,1)
-                w, h = tile.shape[-2:]
-                if w < target_size:
-                    pad_w = target_size-w # int() floors, yet we want to get at least the target size
+                if not self.stack_grid:
+                    target_size=244
+                    #tile = tile.permute(2,0,1).contiguous()
+                    tile = tile.permute(2,0,1)
+                    w, h = tile.shape[-2:]
+                    if w < target_size:
+                        pad_w = target_size-w # int() floors, yet we want to get at least the target size
+                    else:
+                        pad_w = 0
+                    if h < target_size:
+                        pad_h = target_size-h
+                    else:
+                        pad_h = 0
+                    # Note that the padding argument in F.pad() pads up on either side, and the first arguments pads the last dimension. so
+                    # (1,1) pads 1 on top and 1 on bottom of h
+                    # (1,1,2,2) pads 1 top, 1 bottom on h,  2 left, 2 right on w
+                    # Here, we pad only on ONE side, to avoid any difficulties with an uneven difference between target and current
+                    # Anyway, with any of the networks we use, the location will not matter. (CNN / GCNN)
+                    tile = torch.nn.functional.pad(tile, (pad_h, 0, pad_w, 0), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
                 else:
-                    pad_w = 0
-                if h < target_size:
-                    pad_h = target_size-h
-                else:
-                    pad_h = 0
-                # Note that the padding argument in F.pad() pads up on either side, and the first arguments pads the last dimension. so
-                # (1,1) pads 1 on top and 1 on bottom of h
-                # (1,1,2,2) pads 1 top, 1 bottom on h,  2 left, 2 right on w
-                # Here, we pad only on ONE side, to avoid any difficulties with an uneven difference between target and current
-                # Anyway, with any of the networks we use, the location will not matter. (CNN / GCNN)
-                tile = torch.nn.functional.pad(tile, (pad_h, 0, pad_w, 0), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
-                
+                    target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
+                                      # but often not by too much (this helps the network to learn that a zero-tensor is never meaningful information)
+
+                    # Index the tile by feature vectors that do not have std=0 AND sum=0 (meaning it's a zero-tensor). 
+                    # Permute to make it CxWxH
+                    # Flatten to make it Cx(WxH)
+                    tile = tile[((tile.float().std(dim=2) != 0) | (a.sum(dim=2) != 0))].permute(2,0,1).flatten(start_dim=1)
+                    stack_size = tile.shape[1]
+                    if stack_size < target_size:
+                        # always the case..
+                        pad = target_size - stack_size
+                        tile = torch.nn.functional.pad(tile, (pad, 0), 'constant', 0) # the tensor is Cx(HxW), we want to pad so that # pixels is same for all, so that's the last channel in shape, so we give a tuple for that   
         else:
             try:
                 tile = io.imread(img_name)

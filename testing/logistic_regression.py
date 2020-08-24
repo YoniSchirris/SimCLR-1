@@ -322,6 +322,11 @@ def get_precomputed_dataloader(args, run_id):
     else:
         sampling_strategy='tile'
 
+    if 'deepmil' in args.classification_head:
+        stack_grid = True
+    else:
+        stack_grid = False
+
     if args.dataset=='msi-kather':
 
         train_dataset = PreProcessedMSIFeatureDataset(
@@ -355,7 +360,8 @@ def get_precomputed_dataloader(args, run_id):
             split_num=args.kfold,
             label=args.ddr_label,
             split='train',
-            load_tensor_grid=args.load_tensor_grid
+            load_tensor_grid=args.load_tensor_grid,
+            stack_grid=stack_grid
             )     
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
@@ -367,7 +373,8 @@ def get_precomputed_dataloader(args, run_id):
             split_num=args.kfold,
             label=args.ddr_label,
             split='test',
-            load_tensor_grid=args.load_tensor_grid
+            load_tensor_grid=args.load_tensor_grid,
+            stack_grid=stack_grid
             )
         val_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
@@ -379,7 +386,8 @@ def get_precomputed_dataloader(args, run_id):
             split_num=args.kfold,
             label=args.ddr_label,
             split='val',
-            load_tensor_grid=args.load_tensor_grid
+            load_tensor_grid=args.load_tensor_grid,
+            stack_grid=stack_grid
             )
 
     if args.dataset=='msi-kather':
