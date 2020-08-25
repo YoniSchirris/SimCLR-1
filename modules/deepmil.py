@@ -31,28 +31,25 @@ class Attention(nn.Module):
 
     def forward(self, H):
         """
-        Takes an bag of extracted feature vectors and classifies them accordingly
+        Takes an bag of extracted feature vectors and classifies them accordingl
+        
         """
-        H = H.squeeze(0) # Since we get a 1 x #instances x #dimensions, as batch_size = 1
+        H = H.permute(0,2,1) # (batch x channels x instances) -> (batch x instances x channels)
 
-        # x = x.squeeze(0)
-        # H = self.feature_extractor_part1(x)
-        # H = H.view(-1, 48 * 6 * 6)
-        # H = self.feature_extractor_part2(H)  # --> NxL = batch_size * 512
-        A = self.attention(H)  # NxK         # = batch_size * 1 -- thus
-        A = torch.transpose(A, 1, 0)  # KxN
-        A = F.softmax(A, dim=1)  # softmax over N
+        # We pass a (batch x channels) x instances tensor into attention network, which does a tile-wise attention computation. This is then reshaped back to represen the batches
+        A = self.attention(H.reshape(-1, H.shape[-1])).reshape((H.shape[0], H.shape[1], 1))  # A = (batch x instances x K=1)
+        A = F.softmax(A, dim=1)  # softmax over # instances. A = (batch x instances x K=1)
 
         if self.train and H.requires_grad:
             A.register_hook(self._set_grad(A)) # save grad specifically here. only when in train mode and when grad's computed
 
-        M = torch.mm(A, H)  # KxL
+        M = torch.einsum('abc, abd -> ad', A, H) # (batch x instances x K=1) * (batch x instances x channels) -> (batch x instances). We end up with a weighted average feature vectors per patient
 
-        Y_out = self.classifier(M)
+        Y_out = self.classifier(M) # (batch x channels) -> (batch x num_classes)
 
-        if self.num_classes > 1:
+        if self.classes > 1:
             # When doing logistic regression
-            Y_hat = Y_out.softmax(dim=1).argmax() # take softmax over each batch. In this case, we have batch = 1
+            Y_hat = Y_out.argmax(dim=1) # (batch x num_classes) -> (batch x 1)
         else:
             # When doing linear regression
             Y_hat = Y_out
