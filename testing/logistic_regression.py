@@ -273,8 +273,8 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 loss_epoch += train_loss
                 error, _ = model.calculate_classification_error(y, Y_hat)
                 acc = 1. - error        
-                binary_Y_prob = Y_prob.softmax(dim=1)[0][1]
-                preds.append(binary_Y_prob.item())       
+                binary_Y_prob = Y_prob.softmax(dim=1)[:,1] # Get the probability of it being class 1
+                preds += binary_Y_prob.cpu().tolist()       
 
         elif args.classification_head == 'linear-deepmil':
             with torch.no_grad():
@@ -284,7 +284,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 train_loss = loss.item()
                 loss_epoch += train_loss
                 acc = 0
-                preds.append(Y_prob.item())  
+                preds += Y_prob.cpu().tolist()
 
         elif args.classification_head == 'cnn':
             with torch.no_grad():
