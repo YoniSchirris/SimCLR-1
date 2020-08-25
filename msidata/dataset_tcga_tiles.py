@@ -144,7 +144,7 @@ class TiledTCGADataset(Dataset):
             
             if 'subsample' in self.csv_file:
                 path_to_data = self.csv_file.split('_')
-                n = path_to_data[path_to_data.index('subsample')+1]
+                n = path_to_data[path_to_data.index('subsample')+1].rstrip('.csv')
                 append_aggregate_with = f"_subsample_{n}"
             else:
                 append_aggregate_with = ""
@@ -184,9 +184,10 @@ class TiledTCGADataset(Dataset):
                                       # but often not by too much (this helps the network to learn that a zero-tensor is never meaningful information)
 
                     # Index the tile by feature vectors that do not have std=0 AND sum=0 (meaning it's a zero-tensor). 
-                    # Permute to make it CxWxH
-                    # Flatten to make it Cx(WxH)
-                    tile = tile[((tile.float().std(dim=2) != 0) | (a.sum(dim=2) != 0))].permute(2,0,1).flatten(start_dim=1)
+                    # This already flattens it, as otherwise the object wouldn't make sense according to torch
+                    # Permute to make it Cx(WxH)
+                    tile = tile[((tile.float().std(dim=2) != 0) | (tile.sum(dim=2) != 0))]
+                    tile = tile.permute(1,0)
                     stack_size = tile.shape[1]
                     if stack_size < target_size:
                         # always the case..
