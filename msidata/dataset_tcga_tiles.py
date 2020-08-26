@@ -100,6 +100,17 @@ class TiledTCGADataset(Dataset):
             torch.tensor: Graph of specified type
         """
 
+    def get_class_balance(self):
+        if not self.label:
+            print("There's no label given! Returning weights (1,1)")
+            return torch.tensor([1,1])
+        else:
+
+            label_mean = self.labels[label].mean()
+            label_weights = [1, (1-label_mean)/label_mean]
+            print(f"==== Setting class balancing weights: {label_weights} =====")
+            return toch.tensor(label_weights)
+
     def __len__(self):
         full_data_len = len(self.labels.index)
         return full_data_len

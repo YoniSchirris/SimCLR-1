@@ -583,7 +583,7 @@ def main(_run, _log):
         criterion = torch.nn.MSELoss()
     else:
         n_classes = 2 # Doing logistic regression
-        criterion = torch.nn.CrossEntropyLoss() #TODO add class balance
+        criterion = torch.nn.CrossEntropyLoss(weight=train_dataset.get_class_balance()) #TODO add class balance
 
     ## Get Classifier
     if args.classification_head == 'logistic' or args.classification_head == 'linear':
