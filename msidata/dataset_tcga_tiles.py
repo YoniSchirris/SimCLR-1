@@ -106,10 +106,10 @@ class TiledTCGADataset(Dataset):
             return torch.tensor([1,1])
         else:
 
-            label_mean = self.labels[label].mean()
+            label_mean = self.labels[self.label].mean()
             label_weights = [1, (1-label_mean)/label_mean]
-            print(f"==== Setting class balancing weights: {label_weights} =====")
-            return toch.tensor(label_weights)
+            print(f"==== Setting class balancing weights for {self.label}: {label_weights} =====")
+            return torch.tensor(label_weights)
 
     def __len__(self):
         full_data_len = len(self.labels.index)
