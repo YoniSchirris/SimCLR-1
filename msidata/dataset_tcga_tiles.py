@@ -35,7 +35,7 @@ class TiledTCGADataset(Dataset):
         """
 
         assert (not tensor_per_patient), "tensor_per_patient is deprecated, please use tensor_per_wsi, as this makes more sense generally, especially for grids"
-        self.split_num=1 # Which k-fold for train-val split?
+        self.split_num=1 # Which k-fold for train-val split? ## TODO DELETE THIS, THIS ISNT BEING USED, WE ONLY USE SPLIT_NUM
         self.split = split
         self.label=label
         self.dataset = dataset
@@ -191,8 +191,11 @@ class TiledTCGADataset(Dataset):
                     # Anyway, with any of the networks we use, the location will not matter. (CNN / GCNN)
                     tile = torch.nn.functional.pad(tile, (pad_h, 0, pad_w, 0), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
                 else:
-                    target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
+                    if 'subsample' in self.csv_file:
+                        target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
                                       # but often not by too much (this helps the network to learn that a zero-tensor is never meaningful information)
+                    else:
+                        target_size = 12000 # TCGA BRCA FFPE maximum has 11,000 tiles (mean=3600 tiles)
 
                     # Index the tile by feature vectors that do not have std=0 AND sum=0 (meaning it's a zero-tensor). 
                     # This already flattens it, as otherwise the object wouldn't make sense according to torch
