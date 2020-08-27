@@ -151,7 +151,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             loss_epoch += train_loss
             acc = 0 # meaningless here
 
-        elif args.classification_head == 'cnn':
+        elif 'cnn' in args.classification_head:
             y = y.long()
             out = model.forward(x)
             loss = criterion(out, y)
@@ -286,7 +286,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 acc = 0
                 preds += Y_prob.cpu().tolist()
 
-        elif args.classification_head == 'cnn':
+        elif 'cnn' in args.classification_head:
             with torch.no_grad():
                 y = y.long()
                 out = model.forward(x)
@@ -601,16 +601,25 @@ def main(_run, _log):
         else:
             optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
     
-    elif args.classification_head == 'cnn':
+    elif 'cnn' in args.classification_head :
         # For now using resnet18 as this can handle variable size input due to the avg pool
         # If we use batch_size = 1 we can test it all. If it works, we can think of a way to deal with this
-        model = torchvision.models.resnet18()
-        model.fc = torch.nn.Linear(model.fc.in_features, n_classes) 
-        # v--- this is the exact Conv2d line for conv1 found in the Resnet class
-        # Instead, we manually set the in_channels to 512 instead of 3.
-        # hardcoding out_channels=64 instead of model.inplanes because inplanes gets changed during initialization
-        model.conv1 = torch.nn.Conv2d(512, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
+        if args.classification_head == 'cnn-resnet18':
+            print("==== Using resnet18 as classification head")
+            model = torchvision.models.resnet18()
+            model.fc = torch.nn.Linear(model.fc.in_features, n_classes) 
+            # v--- this is the exact Conv2d line for conv1 found in the Resnet class
+            # Instead, we manually set the in_channels to 512 instead of 3.
+            # hardcoding out_channels=64 instead of model.inplanes because inplanes gets changed during initialization
+            model.conv1 = torch.nn.Conv2d(512, 64, kernel_size=7, stride=2, padding=3,
+                                bias=False)
+        else:
+            # args.classification_head == 'cnn-densenet'
+            print("==== Using densenet161 as classification head")
+            model = torchvision.models.densenet161()
+            model.classifier = torch.nn.Linear(model.classifier.in_features, n_classes, bias=True)
+            model.features.Conv2d = torch.nn.Conv2d(512, 96, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
         else:
