@@ -1,4 +1,5 @@
 import torchvision
+from modules.transformations.colour_normalization import MyHETransform
 
 
 class TransformsSimCLR:
@@ -8,7 +9,7 @@ class TransformsSimCLR:
     denoted x ̃i and x ̃j, which we consider as a positive pair.
     """
 
-    def __init__(self, size):
+    def __init__(self, size, henorm='', path_to_target_im=''):
         s = 1
         color_jitter = torchvision.transforms.ColorJitter(
             0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s
@@ -16,6 +17,7 @@ class TransformsSimCLR:
         self.train_transform = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToPILImage(),
+                MyHETransform(henorm=henorm, path_to_target_im=path_to_target_im),
                 torchvision.transforms.RandomResizedCrop(size=size),
                 torchvision.transforms.RandomHorizontalFlip(),  # with 0.5 probability
                 torchvision.transforms.RandomApply([color_jitter], p=0.8),
@@ -27,6 +29,7 @@ class TransformsSimCLR:
         self.test_transform = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToPILImage(),
+                MyHETransform(henorm=henorm, path_to_target_im=path_to_target_im),
                 torchvision.transforms.Resize(size=size),
                 torchvision.transforms.ToTensor()
             ]

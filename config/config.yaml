@@ -16,6 +16,12 @@ root_dir_for_tcga_tiles: "/home/yonis/full-kather-msi-tiles/tiled_data_large/"
 path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
 path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
 
+
+#COLOUR NORMALIZATION
+he_norm: True # Whether or not to use H&E normalization in the test transform
+he_norm_method: 'macenko' # Which H&E normalization method to use. For now, only 'macenko'
+he_norm_target: '/project/yonis/tcga_brca_dx/target_image_macenko/tile1000.jpg' # Which tile to use as target distribution
+
 pretrain: True 
 load_patient_level_tensors: True # Only used for Kather data
 load_wsi_level_tensor: False # Now used for TCGA data (and also for BASIS as it used the same structure & loader)
@@ -26,7 +32,7 @@ data_testing_train_fraction: 0.6
 data_testing_test_fraction: 0.6
 
 data_create_feature_vectors_fraction: 0.1
-create_feature_grid: False
+create_feature_grid: False # Used by "save_feature_vectors" to create a grid instead of a stack
 
 
 # model options

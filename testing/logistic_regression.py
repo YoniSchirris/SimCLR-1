@@ -522,10 +522,31 @@ def main(_run, _log):
         args.data_pretrain_fraction=1    
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
         assert ('root_dir_for_tcga_tiles' in vars(args).keys()), "Please provide the root dir for the tcga tiles"
+
+
+        # TODO Add the HE normalization from config arguments to the code below
+        # Then commit
+        # Then push
+        # Then test
+        if ('he_norm' in vars(args).keys()) and ('he_norm_method' in vars(args).keys()):
+            if args.he_norm:
+                he_normalization=args.he_norm_method
+                if he_normalization == 'macenko':
+                    assert(os.path.isfile(args.he_norm_target)), f"he_norm_target: {args.he_norm_target} is not an existing file"
+                    he_norm_target = args.he_norm_target
+            else:
+                he_normalization = ''
+                he_norm_target = ''
+        else:
+            he_normalization = ''
+            he_norm_target = ''
+
+        tcga_transform = TransformsSimCLR(size=224, henorm=he_normalization, path_to_target_im=he_norm_target).test_transform
+
         train_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform,
+            transform=tcga_transform,
             split_num=args.kfold,
             label=args.ddr_label,
             split='train'
@@ -533,7 +554,7 @@ def main(_run, _log):
         test_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform,
+            transform=tcga_transform,
             split_num=args.kfold,
             label=args.ddr_label,
             split='test'
@@ -541,7 +562,7 @@ def main(_run, _log):
         val_dataset = dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
-            transform=TransformsSimCLR(size=224).test_transform,
+            transform=tcga_transform,
             split_num=args.kfold,
             label=args.ddr_label,
             split='val'

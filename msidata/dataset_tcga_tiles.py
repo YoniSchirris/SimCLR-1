@@ -210,6 +210,14 @@ class TiledTCGADataset(Dataset):
         else:
             try:
                 tile = io.imread(img_name)
+                #TODO Possibly change this to PIL.Image.load(img_name).
+                # This might then keep the filename in the object.
+                # Depending on the order of transforms, but the H&E name requires the filaname
+                # From the filename, we can get the dot_id
+                # With the dot_id, we can find the color normalization LUT
+                
+                # Instead, we could also pass the filename / dot_id to transform, and have a wrapper around
+                # transform that then passes this dot_id into the H&E normalization function
             except ValueError as e:
                 print(f"=============== Error: {e}. Corrupt image file: {img_name} ================")
                 import sys
