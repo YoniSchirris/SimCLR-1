@@ -34,7 +34,7 @@ class StainNormalizer(object):
         self.maxC_target = np.percentile(self.target_concentrations, 99, axis=0).reshape((1, 2))
         self.stain_matrix_target_RGB = convert_OD_to_RGB(self.stain_matrix_target)  # useful to visualize.
 
-    def transform(self, I):
+    def transform(self, I, filename=''):
         """
         Transform an image.
 
@@ -51,4 +51,5 @@ class StainNormalizer(object):
             tmp = 255 * np.exp(-1 * np.dot(source_concentrations, self.stain_matrix_target))
             return tmp.reshape(I.shape).astype(np.uint8)
         else:
+            print(f"=== This image was seen as background by Macenko method, and is therefore not transformed: {filename}")
             return I.astype(np.uint8)

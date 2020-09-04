@@ -44,8 +44,9 @@ class CustomMacenkoNormalizer():
         Returns:
             PIL.Image: Returns a transforemd PIL Image, so that it can be used further on in the transforms pipeline
         """
+        filename = im.filename['tile']
         im = np.array(im)
-        transformed_im = self.normalizer.transform(im)
+        transformed_im = self.normalizer.transform(im, filename)
         return Image.fromarray(transformed_im)
 
 
@@ -74,7 +75,7 @@ class CustomBabakNormalizer():
 
 
     def transform(self, im: PIL.Image) -> PIL.Image:
-        wsi_filename = im.filename # In the TCGA dataloader, we save TCGA_ID . DOT_ID . svs in the PIL object
+        wsi_filename = im.filename['wsi'] # In the TCGA dataloader, we save TCGA_ID . DOT_ID . svs in the PIL object
         im = np.asarray(im)
 
         #TODO Find a way to map from tile -> WSI -> LUT.

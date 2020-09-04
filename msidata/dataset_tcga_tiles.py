@@ -211,7 +211,7 @@ class TiledTCGADataset(Dataset):
             try:
                 # tile = io.imread(img_name)
                 tile = PIL.Image.open(img_name)
-                tile.filename = f"{self.dot_id_to_tcga_id[dot_id]}.{dot_id}.svs" # PIL has the tile filename, but we need the accompanying WSI name
+                tile.filename = {'tile': img_name, 'wsi': f"{self.dot_id_to_tcga_id[dot_id]}.{dot_id}.svs"} # PIL has the tile filename, but we need the accompanying WSI name
 
                 #TODO Possibly change this to PIL.Image.load(img_name).
                 # This might then keep the filename in the object.
