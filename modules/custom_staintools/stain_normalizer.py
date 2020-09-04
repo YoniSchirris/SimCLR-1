@@ -44,7 +44,7 @@ class StainNormalizer(object):
         stain_matrix_source = self.extractor.get_stain_matrix(I)
 
         # Yoni's edit: get_strain_matrix returns false if the linalg doesn't work out. If that doesn't work out, we return an untransformed image
-        if stain_matrix_source:
+        if isinstance(stain_matrix_source, np.ndarray):
             source_concentrations = get_concentrations(I, stain_matrix_source, multiThread=False)
             maxC_source = np.percentile(source_concentrations, 99, axis=0).reshape((1, 2))
             source_concentrations *= (self.maxC_target / maxC_source)
