@@ -9,15 +9,14 @@ class TransformsSimCLR:
     denoted x ̃i and x ̃j, which we consider as a positive pair.
     """
 
-    def __init__(self, size, henorm='', path_to_target_im=''):
+    def __init__(self, size, henorm='', path_to_target_im='', lut_root_dir=''):
         s = 1
         color_jitter = torchvision.transforms.ColorJitter(
             0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s
         )
         self.train_transform = torchvision.transforms.Compose(
             [
-                torchvision.transforms.ToPILImage(),
-                MyHETransform(henorm=henorm, path_to_target_im=path_to_target_im),
+                MyHETransform(henorm=henorm, path_to_target_im=path_to_target_im, lut_root_dir=lut_root_dir),
                 torchvision.transforms.RandomResizedCrop(size=size),
                 torchvision.transforms.RandomHorizontalFlip(),  # with 0.5 probability
                 torchvision.transforms.RandomApply([color_jitter], p=0.8),
@@ -28,8 +27,7 @@ class TransformsSimCLR:
 
         self.test_transform = torchvision.transforms.Compose(
             [
-                torchvision.transforms.ToPILImage(),
-                MyHETransform(henorm=henorm, path_to_target_im=path_to_target_im),
+                MyHETransform(henorm=henorm, path_to_target_im=path_to_target_im, lut_root_dir=lut_root_dir),
                 torchvision.transforms.Resize(size=size),
                 torchvision.transforms.ToTensor()
             ]

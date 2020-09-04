@@ -1,19 +1,24 @@
 ### Macenko method for normalization
 
-import staintools
-import PIL
-from PIL import Image
-import numpy as np
 import os
+
+import numpy as np
+import PIL
+import staintools
+from PIL import Image
+
+from custom_staintools.stain_normalizer import StainNormalizer
+
 
 class MyHETransform:
     """Normalize HE colour distribution"""
-    def __init__(self, henorm='', path_to_target_im=''):
+    def __init__(self, henorm='', path_to_target_im='', lut_root_dir=''):
+
         if henorm == 'macenko':
             self.transform = CustomMacenkoNormalizer(path_to_target_im=path_to_target_im).transform
         elif henorm == 'babak':
             raise NotImplementedError
-            self.transform = CustomBabakNormalizer()
+            self.transform = CustomBabakNormalizer(lut_root_dir=lut_root_dir)
         else:
             self.transform = lambda x: x
 
@@ -25,7 +30,7 @@ class CustomMacenkoNormalizer():
     to the target tile H&E colour distribution
     """
     def __init__(self, path_to_target_im=""):
-        self.normalizer = staintools.stain_normalizer.StainNormalizer(method='macenko')
+        self.normalizer = StainNormalizer(method='macenko')
         target_im = Image.open(path_to_target_im)
         target_im = np.array(target_im)
         self.normalizer.fit(target_im)
@@ -51,8 +56,8 @@ class CustomBabakNormalizer():
     https://github.com/francescociompi/stain-normalization-isbi-2017/blob/master/apply_stain_normalization.py
     """
 
-    def __init__(self, root_dir_for_luts):
-        self.root_dir_for_luts = root_dir_for_luts
+    def __init__(self, lut_root_dir):
+        self.lut_root_dir = lut_root_dir
 
     def apply_lut(tile, lut):
         """ 
@@ -69,25 +74,14 @@ class CustomBabakNormalizer():
 
 
     def transform(self, im: PIL.Image) -> PIL.Image:
-        filename = im.filename
+        wsi_filename = im.filename # In the TCGA dataloader, we save TCGA_ID . DOT_ID . svs in the PIL object
         im = np.asarray(im)
 
         #TODO Find a way to map from tile -> WSI -> LUT.
 
         lut_filename = os.path.splitext(filename)[0] + '_lut.tif'
-        lut = np.asarray(Image.open(lut_filename)).squeeze()
+        absolute_lut_filepath = os.path.join(self.lut_root_dir, lut_filename)
+        lut = np.asarray(Image.open(absolute_lut_filepath)).squeeze()
         normalized_tile = self.apply_lut(im, lut)
         normalized_tile = Image.fromarray(normalized_tile)
         return normalized_tile
-
-
-
-
-
-
-
-
-
-
-
-

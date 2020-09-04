@@ -209,7 +209,10 @@ class TiledTCGADataset(Dataset):
                         tile = torch.nn.functional.pad(tile, (pad, 0), 'constant', 0) # the tensor is Cx(HxW), we want to pad so that # pixels is same for all, so that's the last channel in shape, so we give a tuple for that   
         else:
             try:
-                tile = io.imread(img_name)
+                # tile = io.imread(img_name)
+                tile = PIL.Image.open(img_name)
+                tile.filename = f"{self.dot_id_to_tcga_id[dot_id]}.{dot_id}.svs" # PIL has the tile filename, but we need the accompanying WSI name
+
                 #TODO Possibly change this to PIL.Image.load(img_name).
                 # This might then keep the filename in the object.
                 # Depending on the order of transforms, but the H&E name requires the filaname
