@@ -7,7 +7,7 @@ import PIL
 import staintools
 from PIL import Image
 
-from custom_staintools.stain_normalizer import StainNormalizer
+from modules.custom_staintools.stain_normalizer import StainNormalizer
 
 
 class MyHETransform:
