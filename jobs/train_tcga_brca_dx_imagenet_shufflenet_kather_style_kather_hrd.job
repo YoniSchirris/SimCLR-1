@@ -1,15 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=titan_tcga_brca_shufflenet_full_train
+#SBATCH --job-name=finetune_brca
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=24
-#SBATCH --partition=gpu_titanrtx
+#SBATCH --cpus-per-task=6
+#SBATCH --partition=gpu_titanrtx_shared
+#SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
-#SBATCH --time=3-0:0:0
-#SBATCH --mem=180G
-
+#SBATCH --time=2:20:00
+#SBATCH --array=1-5
 # moved into jobs/msi dir, nothing should change besides this
 
 #rsync -a -progress=info2 --exclude json --files-from= . /scratch/
+INCLUDEFILE=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/train_paths.txt
 
 module purge
 module load 2019
@@ -21,36 +22,32 @@ export LD_LIBRARY_PATH=/hpc/eb/Debian9/cuDNN/7.6.3-CUDA-10.0.130/lib64:$LD_LIBRA
 
 CONDA_PREFIX=$(conda info --base)
 source $CONDA_PREFIX/etc/profile.d/conda.sh
-conda activate thesisp375_apex
+conda activate thesisp375
 
 ORIGINAL_DATA_PATH=/home/yonis/tcga_breast_ddr/ # please don't forget the trailing /. or do /home/yonis/<theone>/tiled_data_large ... without a /
 
 cd ..
-echo "starting to copy to scratch... v-- time of starting is below"
+echo "starting to copy to scratch..."
 date
 cp /project/yonis/tcga_brca_dx/tiled_data_large.tar.gz "$TMPDIR"
-#rsync -a /project/yonis/tcga_brca_dx/tiled_data_large.tar.gz "$TMPDIR"
 #rsync -a -progress=info2 --exclude "json" $ORIGINAL_DATA_PATH "$TMPDIR"
 #rsync -a -progress=info2 --exclude "json" --files-from=$INCLUDEFILE $ORIGINAL_DATA_PATH "$TMPDIR"
 #rsync -ah --delete --ignore-existing --exclude "*.pt" $ORIGINAL_DATA_PATH "$TMPDIR"/
-echo "done with copying to scratch... v--- time that this is finished is below"
-
+echo "done with copying to scratch..."
 date
 cd "$TMPDIR"
 tar xzf tiled_data_large.tar.gz
-echo "done with unzipping v---- time that unzipping was finished is below"
+echo "done with unzipping"
 date
 ls "$TMPDIR"
 cd -
-
 #num_workers=`expr $(nproc --all) - 1`
-num_workers=10
+num_workers=4
 echo "Num threads: $num_workers"
 
-srun python3 -u -m feature_learning.main_unsupervised with feature_learning=unsupervised reload_model=False resnet=shufflenetv2_x1_0 config_file=./config/config-simclr-train-tcga-brca-dx.yaml batch_size=950 workers=$num_workers use_multi_gpu=True kfold=0 root_dir_for_tcga_tiles="$TMPDIR"/tiled_data_large/ reload_model=True model_path=logs/pretrain/579 epoch_num=3078 epochs=75
+srun python3 -u -m testing.logistic_regression with config_file=./config/train-rn18-brca-dx-supervised-kather-style.yaml root_dir_for_tcga_tiles="$TMPDIR"/tiled_data_large/ kfold=$SLURM_ARRAY_TASK_ID logistic_extractor=imagenet-shufflenetv2_x1_0 workers=$num_workers ddr_label=mean_kather_hrd
 
-#srun python3 -u -m feature_learning.main_unsupervised with feature_learning=unsupervised reload_model=False resnet=shufflenetv2_x1_0 config_file=./config/config-simclr-train-tcga-brca-dx.yaml batch_size=256 workers=$num_workers use_multi_gpu=True kfold=0 root_dir_for_tcga_tiles="$TMPDIR"/tiled_data_large/
-
+#srun python3 -u -m feature_learning.main_unsupervised with feature_learning=unsupervised reload_model=False resnet=resnet18 config_file=./config/config-simclr-train-tcga-brca-kr.yaml batch_size=950 workers=$num_workers use_multi_gpu=True 
 #root_dir_for_tcga_tiles="$TMPDIR"/tiled_data_large/ 
 #srun python3 -u -m feature_learning.main_unsupervised with feature_learning=unsupervised reload_model=False resnet=resnet18 config_file=./config/config-simclr-train-tcga-crc-dx.yaml batch_size=128  unsupervised_method=simclr workers=$num_workers
 #srun python3 -u train.py --single_gpu --name=stadlr56 --batch_size=256 --run_times=3 --epochs=100 --freeze_num=0 --evaluate_every=256 --eval_patience=3 --data=msidata/stad --save_model=True --track_tb=True --learning_rate=5e-6 --weight_decay=1e-4 --learning_rate_factor=2 --seedstart=1

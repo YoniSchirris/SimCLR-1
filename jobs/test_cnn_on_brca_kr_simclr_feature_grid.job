@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-#SBATCH --job-name=performance_of_simclr_on_tcga
+#SBATCH --job-name=cnn_on_self_supervised_simclr_tcga_brca_kr_feature_grids
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=3
 #SBATCH --partition=gpu_shared
@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=0:59:00
 #SBATCH --mem=62GB
-#SBATCH --array=1
+#SBATCH --array=2-5
 # moved into jobs/msi dir, nothing should change besides this
 
 module purge
@@ -57,5 +57,7 @@ echo "Num threads: $num_workers"
 #do
 #done
 
-srun python3 -u -m testing.logistic_regression with workers=6 config_file=./config/test-tcga-brca.yaml precompute_features=False use_precomputed_features=True use_precomputed_features_id=437 logistic_epochs=5 ddr_label="kather_hrd" classification_head='linear-deepmil' evaluate_every=100 kfold=$SLURM_ARRAY_TASK_ID
+python -m testing.logistic_regression with workers=6 config_file=./config/test-tcga-brca.yaml precompute_features=False use_precomputed_features=True use_precomputed_features_id=437 logistic_epochs=5 ddr_label=median_HRD_Score classification_head=cnn evaluate_every=5 kfold=$SLURM_ARRAY_TASK_ID load_tensor_grid=True load_wsi_level_tensors=True path_to_msi_data=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_kr/data_tcga_breast_ddr_no_ffpewith_ddr_labels_and_splits.csv logistic_batch_size=16
+
+#srun python3 -u -m testing.logistic_regression with workers=6 config_file=./config/test-tcga-brca.yaml precompute_features=False use_precomputed_features=True use_precomputed_features_id=437 logistic_epochs=5 ddr_label="median_HRD_Score" classification_head='cnn' evaluate_every=100 kfold=$SLURM_ARRAY_TASK_ID load_tensor_grid=True load_wsi_level_tensors=True path_to_msi_data=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_kr/data_tcga_breast_ddr_no_ffpewith_ddr_labels_and_splits.csv logistic_batch_size=1
 #rsync -a -progress=info2 --ignore-existing --exclude="*.jpg" "$TMPDIR"/tiled_data_large/ "$ORIGINAL_DATA_PATH"/tiled_data_large/ 
