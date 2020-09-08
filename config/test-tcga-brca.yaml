@@ -7,7 +7,7 @@ epochs: 100
 dataset: "msi-tcga" # STL10
 #path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 #path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
-path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_kr/data_tcga_breast_ddr_no_ffpewith_ddr_labels_and_splits.csv"
+path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_kr/data_tcga_breast_ddr_no_ffpewith_ddr_labels_and_splits_with_katherhrd_subsample_500.csv"
 path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_test.csv"
 root_dir_for_tcga_tiles: "/home/yonis/tcga_breast_ddr/tiled_data_large/"
 pretrain: False
