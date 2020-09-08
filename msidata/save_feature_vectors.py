@@ -45,6 +45,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
     else:
         raise NotImplementedError
     for step, (x, y, patient, img_names) in enumerate(loader):
+        print(f"[ Step {step} / {len(loader)} ]")
         x = x.to(device)
         # get encoding
         if not model_type or model_type == 'simclr':
@@ -176,7 +177,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
         print(f'[ {datetime.datetime.now()} ] \t [ {idx} / {len(data[identifier].unique())} ] \t Saving {filename}')
 
 
-def save_features(context_model, train_loader, test_loader, device, append_with=''):
+def save_features(context_model, train_loader, test_loader, val_loader, device, append_with=''):
     infer_and_save(train_loader, context_model, device, append_with)
     infer_and_save(test_loader, context_model, device, append_with)
     infer_and_save(val_loader, context_model, device, append_with)
