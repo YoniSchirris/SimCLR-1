@@ -4,3 +4,4 @@ datasets/
 *dropbox-version
 .vscode
 *.out
+*.idea
