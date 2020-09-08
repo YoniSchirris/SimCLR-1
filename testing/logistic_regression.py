@@ -639,7 +639,7 @@ def main(_run, _log):
             print("==== Using densenet161 as classification head")
             model = torchvision.models.densenet161()
             model.classifier = torch.nn.Linear(model.classifier.in_features, n_classes, bias=True)
-            model.features.Conv2d = torch.nn.Conv2d(512, 96, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+            model.features.conv0 = torch.nn.Conv2d(1024, 96, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
 
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
