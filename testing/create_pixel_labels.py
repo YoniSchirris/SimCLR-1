@@ -9,29 +9,7 @@ from model import load_model, save_model
 import pandas as pd
 import os
 
-
-@ex.automain
-def main(_run, _log):
-    args = argparse.Namespace(**_run.config)
-    args = post_config_hook(args, _run)
-    args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
-    assert (args.load_patient_level_tensors), 'Please load patient level tensors for deepmil'
-    assert (args.classification_head == 'deepmil'), 'Currently this is only implemented for deepmil'
-    assert (args.dataset == 'msi-kather'), 'Currently this is only implemented for kather-msi data'
-
-    # Get a patient-level tensor loader
-    train_loader, val_loader, test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
-
-    # Also, get the original data file
-    original_labels = pd.read_csv(os.path.join(args.path_to_msi_data, 'data.csv'))
-    original_labels['patient_id'] = original_labels.apply(lambda x: x['img'].split('/')[1].split('-')[4], axis=1)
-
-    # Get a pretrained deepmil classifier
-    classifier, _, _ = load_model(args, None, reload_model=False, model_type=args.classification_head)
-    classifier = classifier.to(args.device)
-
+def compute_and_save_labels(original_labels, loader, classifier)
     for step, data in enumerate(train_loader):
           
         # We get an unstructured compressed image for a single patient. i.e. a 1x{# tiles}x{h=512} vector
@@ -57,6 +35,32 @@ def main(_run, _log):
         original_labels.loc[original_labels['patient_id']==patient, 'attention'] = A.flatten().detach().cpu().numpy()
         original_labels.loc[original_labels['patient_id']==patient, 'dMSIdA'] = dMSIdA.flatten().detach().cpu().numpy()
         original_labels.loc[original_labels['patient_id']==patient, 'a_dMSIdA'] = (A.flatten()*dMSIdA.flatten()).detach().cpu().numpy()
+    return original_labels
+
+@ex.automain
+def main(_run, _log):
+    args = argparse.Namespace(**_run.config)
+    args = post_config_hook(args, _run)
+    args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    assert (args.use_precomputed_features_id), 'Please set the run ID of the features you want to use'
+    assert (args.load_patient_level_tensors), 'Please load patient level tensors for deepmil'
+    assert (args.classification_head == 'deepmil'), 'Currently this is only implemented for deepmil'
+    assert (args.dataset == 'msi-kather'), 'Currently this is only implemented for kather-msi data'
+
+    # Get a patient-level tensor loader
+    train_loader, val_loader, test_loader = get_precomputed_dataloader(args, args.use_precomputed_features_id)
+
+    # Also, get the original data file
+    original_labels = pd.read_csv(os.path.join(args.path_to_msi_data, 'data.csv'))
+    original_labels['patient_id'] = original_labels.apply(lambda x: x['img'].split('/')[1].split('-')[4], axis=1)
+
+    # Get a pretrained deepmil classifier
+    classifier, _, _ = load_model(args, None, reload_model=False, model_type=args.classification_head)
+    classifier = classifier.to(args.device)
+
+    original_labels = compute_and_save_labels(original_labels, train_loader, classifier)
+    original_labels = compute_and_save_labels(original_labels, val_loader, classifier)
 
     # Save the labels to data.csv
     # save it in the same dir as data.csv, but as data_{run_id}.csv
