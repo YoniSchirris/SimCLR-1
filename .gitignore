@@ -3,3 +3,4 @@ logs/
 datasets/
 *dropbox-version
 .vscode
+*.out
