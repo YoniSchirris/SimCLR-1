@@ -1,0 +1,23 @@
+data_create_feature_vectors_fraction: 1
+data_testing_train_fraction: 1
+kfold: 1 # since we have train, test, and val, this'll do ALL data.
+
+model_path: ./logs/pretrain/585
+epoch_num: 68040
+use_precomputed_features: False
+path_to_msi_data: /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv
+create_feature_grid: True
+reload_model: True
+optimizer: Adam
+fp16: False
+pretrain: False
+dataset: msi-tcga
+root_dir_for_tcga_tiles: /project/yonis/tcga_brca_dx/tiled_data_large/
+resnet: shufflenetv2_x1_0
+projection_hidden: 128
+projection_dim: 128
+unsupervised_method: simclr
+normalize: True
+
+
+feature_learning: unsupervised

@@ -1,0 +1,9 @@
+data_create_feature_vectors_fraction: 1
+model_path: doesnt_matter_for_now
+use_precomputed_features_id: 437
+path_to_msi_data: /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_kr/data_tcga_breast_ddr_no_ffpewith_ddr_labels_and_splits.csv 
+create_feature_grid: True
+pretrain: False
+use_precomputed_features: True
+dataset: msi-tcga
+root_dir_for_tcga_tiles: /home/yonis/tcga_breast_ddr/tiled_data_large/
