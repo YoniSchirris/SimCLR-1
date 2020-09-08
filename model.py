@@ -14,6 +14,10 @@ def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''
         if args.feature_learning == "unsupervised":
             model = SimCLR(args)        
         elif args.feature_learning == "supervised":
+            #TODO This is not able to load the state dict due to the different weights than what it is trained for
+            # Also, in the train script, we use a separate extractor and a separate classifier. 
+            # So this is not really needed, we can just take it as is...
+
             args.normalize = False      # we get class outputs, so no need for a normalize
             args.projection_dim = 2     # num_classes. we are mostly looking at binary classification problems
             model = SimCLR(args)
