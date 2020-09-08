@@ -7,9 +7,12 @@ import numpy as np
 from sklearn import metrics
 import glob
 import time
+#../logs/eval/439/regression_output_epoch_10_2020-07-29-13-55-30.csv
+runs = ['439']
+#runs = [i for i in range(142,168+1)]
 
-# filepaths = [f'../logs/pretrain/{i}' for i in range(142,142+27+1)] # directories to loop over
-dirs = ['../logs/pretrain/142'] # no trailing /
+dirs = [f'../logs/eval/{i}' for i in runs] # directories to loop over
+#dirs = ['../logs/pretrain/142'] # no trailing /
 
 data = {
     'filepath': [],
@@ -25,7 +28,7 @@ data = {
 }
 
 # filepath = '../logs/pretrain/105/regression_output_epoch_40_2020-07-01-15-17-44.csv'
-for dir in dirs:
+for dir, run in zip(dirs, runs):
     print(dir)
     filepaths = glob.glob(f'{dir}/*output*.csv')
     for filepath in filepaths:
@@ -87,5 +90,5 @@ for dir in dirs:
 
 
 
-pd.DataFrame(data=data).to_csv(f"metrics_{time.strftime('%B-%d-%H:%M:%S')}.csv")
+pd.DataFrame(data=data).to_csv(f"metrics_runs_{'-'.join(runs)}_{time.strftime('%B-%d-%H:%M:%S')}.csv")
 
