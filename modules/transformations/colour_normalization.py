@@ -15,7 +15,7 @@ class MyHETransform:
     def __init__(self, henorm='', path_to_target_im='', lut_root_dir=''):
 
         if henorm == 'macenko':
-            self.transform = CustomMacenkoNormalizer(path_to_target_im=path_to_target_im).transform
+            self.transform = CustomMacenkoNormalizerHistomicsTK(path_to_target_im=path_to_target_im).transform
         elif henorm == 'babak':
             raise NotImplementedError
             self.transform = CustomBabakNormalizer(lut_root_dir=lut_root_dir)
@@ -25,9 +25,57 @@ class MyHETransform:
     def __call__(self, x):
         return self.transform(x)
 
+class CustomMacenkoTransformerHistomicsTK():
+    """
+    As adjusted from
+    https://digitalslidearchive.github.io/HistomicsTK/_modules/histomicstk/preprocessing/color_normalization/deconvolution_based_normalization.html#deconvolution_based_normalization
+
+    Initializes with a target image (str, absolute path to target image) and computes the target stain
+
+    .transform() fits the stain of the given image (np array, WxHxC) to the target stain
+
+    """
+    def __init__(self, path_to_target_im: str=None, stains=None, stain_unmixing_routine_params=None):
+        stains = ['hematoxylin', 'eosin'] if stains is None else stains
+        stain_unmixing_routine_params = (
+            {} if stain_unmixing_routine_params is None else
+            stain_unmixing_routine_params)
+        stain_unmixing_routine_params['stains'] = stains
+        
+        self.stain_unmixing_routine_params = stain_unmixing_routine_params
+
+        im_target = Image.open(path_to_target_im)
+        im_target = np.asarray(im_target)
+        
+        if im_target is None:
+            # Normalize to 'ideal' stain matrix if none is provided
+            W_target = np.array(
+                [stain_color_map[stains[0]], stain_color_map[stains[1]]]).T
+            self.W_target = complement_stain_matrix(W_target)
+
+        elif im_target is not None:
+            # Get W_target from target image
+            self.W_target = stain_unmixing_routine(
+                im_target, **stain_unmixing_routine_params)
+
+    def transform(self, im_src: PIL.Image) -> PIL.Image:
+        im_src = np.asarray(im_src) # Convert to np array
+
+        _, StainsFloat, _ = color_deconvolution_routine(
+            im_src, **self.stain_unmixing_routine_params)
+
+        im_src_normalized = color_convolution(StainsFloat, self.W_target)
+
+        im_src_normalized = Image.fromarray(im_src_normalized) # convert back to PIL Image
+        return im_src_normalized
+        
+
 class CustomMacenkoNormalizer():
     """Macenko method for H&E normalization. Takes a target tile, and transforms the color space of other tiles
     to the target tile H&E colour distribution
+
+    This uses the staintools implementation
+
     """
     def __init__(self, path_to_target_im=""):
         self.normalizer = StainNormalizer(method='macenko')
