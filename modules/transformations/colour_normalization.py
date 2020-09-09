@@ -4,10 +4,26 @@ import os
 
 import numpy as np
 import PIL
-import staintools
 from PIL import Image
 
+
+#staintools
+import staintools
 from modules.custom_staintools.stain_normalizer import StainNormalizer
+
+
+
+#histomicsTK
+from histomicstk.preprocessing.color_deconvolution.stain_color_map import (
+    stain_color_map)
+from histomicstk.preprocessing.color_deconvolution.color_deconvolution import (
+    stain_unmixing_routine, color_deconvolution_routine)
+from histomicstk.preprocessing.color_deconvolution.color_convolution import (
+    color_convolution)
+from histomicstk.preprocessing.color_deconvolution import (
+    complement_stain_matrix)
+
+
 
 
 class MyHETransform:
@@ -15,7 +31,7 @@ class MyHETransform:
     def __init__(self, henorm='', path_to_target_im='', lut_root_dir=''):
 
         if henorm == 'macenko':
-            self.transform = CustomMacenkoNormalizerHistomicsTK(path_to_target_im=path_to_target_im).transform
+            self.transform = CustomMacenkoTransformerHistomicsTK(path_to_target_im=path_to_target_im).transform
         elif henorm == 'babak':
             raise NotImplementedError
             self.transform = CustomBabakNormalizer(lut_root_dir=lut_root_dir)
