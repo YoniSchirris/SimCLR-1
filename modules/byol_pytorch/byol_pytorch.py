@@ -5,7 +5,7 @@ from functools import wraps
 import torch
 from torch import nn
 import torch.nn.functional as F
-from modules.transformations import TransformsSimCLR
+from modules.transformations import TransformsBYOL
 
 # helper functions
 
@@ -148,7 +148,7 @@ class BYOL(nn.Module):
 
         # default SimCLR augmentation
 
-        DEFAULT_AUG = TransformsSimCLR(size=224)
+        DEFAULT_AUG = TransformsBYOL(size=224)
 
         self.augment = default(augment_fn, DEFAULT_AUG)
 
