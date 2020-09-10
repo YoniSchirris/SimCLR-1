@@ -68,15 +68,15 @@ def main():
             # Save images to disk
             print(f"[{datetime.datetime.now()} | Step {step} / {len(loader)}]")
             tiles, labels, patient_ids, img_names = data
-             for tile, label, patient_id, img_name in zip(tiles, labels, patient_ids, img_names):
+            for tile, label, patient_id, img_name in zip(tiles, labels, patient_ids, img_names):
                  # Save each tile separately
-                 tile = torchvision.transforms.functional.to_pil_image(tile)
-                 new_img_name = img_name.replace('.jpg', '_norm_mac_kath.jpg')
-                 new_absolute_tile_path = os.path.join(root_dir, new_img_name)
+                tile = torchvision.transforms.functional.to_pil_image(tile)
+                new_img_name = img_name.replace('.jpg', '_norm_mac_kath.jpg')
+                new_absolute_tile_path = os.path.join(root_dir, new_img_name)
                 #  assert(not os.path.isfile(new_absolute_tile_path)), f"{new_absolute_tile_path} already exists..."
                 if os.path.isfile(new_absolute_tile_path):
                     print(f"{new_absolute_tile_path} already exists! Overwriting for now!")
-                 tile.save(new_absolute_tile_path)
+                tile.save(new_absolute_tile_path)
 
           
 
