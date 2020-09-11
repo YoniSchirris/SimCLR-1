@@ -15,7 +15,7 @@ class TransformsBYOL:
                 torchvision.transforms.RandomApply([color_jitter], p=0.8),
                 torchvision.transforms.RandomGrayscale(p=0.2),
                 torchvision.transforms.ToTensor(),
-                torchvision.transforms.Normalize((196.90496826171875, 174.1833953857422, 208.14389038085938), (47.42164611816406, 64.02257537841797, 44.78542709350586))
+                torchvision.transforms.Normalize((196.99545288085938, 174.21389770507812, 208.27586364746094), (47.20835494995117, 63.753047943115234, 44.500614166259766))
             ]
         """
         Appendix B, page 13, bottom:
