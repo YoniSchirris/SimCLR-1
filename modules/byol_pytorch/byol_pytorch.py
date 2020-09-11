@@ -5,7 +5,8 @@ from functools import wraps
 import torch
 from torch import nn
 import torch.nn.functional as F
-from modules.transformations import TransformsBYOL
+
+from modules import TransformsBYOL
 
 # helper functions
 
