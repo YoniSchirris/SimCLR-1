@@ -19,7 +19,7 @@ except ImportError:
 from model import load_model, save_model
 from modules import NT_Xent
 from modules.sync_batchnorm import convert_model
-from modules.transformations import TransformsSimCLR
+from modules import TransformsSimCLR
 from utils import post_config_hook
 from msidata.dataset_msi import PreProcessedMSIDataset as dataset_msi
 from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
