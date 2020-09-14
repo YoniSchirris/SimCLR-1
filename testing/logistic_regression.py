@@ -1,5 +1,8 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
 import random
 import torch
+torch.set_num_threads(1)
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -26,7 +29,6 @@ from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 import pandas as pd
 import time
 import datetime
-import os
 import json
 
 from sklearn import metrics
@@ -93,6 +95,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
     accuracy_epoch = 0
     for step, data in enumerate(train_loader):
         global_step += 1
+        print(f"[ Step {global_step} / {len(train_loader)} ] @ {datetime.datetime.now()}")
         optimizer.zero_grad()
         x =  data[0].to(args.device) 
         y = data[1].to(args.device)
