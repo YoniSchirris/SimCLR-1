@@ -3,6 +3,11 @@ from modules.transformations.colour_normalization import MyHETransform
 
 class TransformsBYOL:
     def __init__(self, size, henorm='', path_to_target_im='', lut_root_dir=''):
+        """
+        Appendix B, page 13, bottom:
+        In both training and evaluation, we normalize color channels by subtracting the average color and dividing by the standar deviation, 
+        computed on ImageNet, after applying the augmentations
+        """
         s = 1
         color_jitter = torchvision.transforms.ColorJitter(
             0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s
@@ -17,11 +22,6 @@ class TransformsBYOL:
                 torchvision.transforms.ToTensor(),
                 torchvision.transforms.Normalize((196.99545288085938, 174.21389770507812, 208.27586364746094), (47.20835494995117, 63.753047943115234, 44.500614166259766))
             ]
-        """
-        Appendix B, page 13, bottom:
-        In both training and evaluation, we normalize color channels by subtracting the average color and dividing by the standar deviation, 
-        computed on ImageNet, after applying the augmentations
-        """
         )
 
         self.test_transform = torchvision.transforms.Compose(
