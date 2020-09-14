@@ -353,7 +353,7 @@ def get_precomputed_dataloader(args, run_id):
         )
 
     elif args.dataset == 'msi-tcga':
-        train_dataset = dataset_tcga(
+        train_dataset, test_dataset, val_dataset = [dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=None,
@@ -364,34 +364,9 @@ def get_precomputed_dataloader(args, run_id):
             label=args.ddr_label,
             split='train',
             load_tensor_grid=args.load_tensor_grid,
-            stack_grid=stack_grid
-            )     
-        test_dataset = dataset_tcga(
-            csv_file=args.path_to_msi_data, 
-            root_dir=args.root_dir_for_tcga_tiles, 
-            transform=None,
-            precomputed=True,
-            precomputed_from_run=run_id,
-            tensor_per_wsi=args.load_wsi_level_tensors,
-            split_num=args.kfold,
-            label=args.ddr_label,
-            split='test',
-            load_tensor_grid=args.load_tensor_grid,
-            stack_grid=stack_grid
-            )
-        val_dataset = dataset_tcga(
-            csv_file=args.path_to_msi_data, 
-            root_dir=args.root_dir_for_tcga_tiles, 
-            transform=None,
-            precomputed=True,
-            precomputed_from_run=run_id,
-            tensor_per_wsi=args.load_wsi_level_tensors,
-            split_num=args.kfold,
-            label=args.ddr_label,
-            split='val',
-            load_tensor_grid=args.load_tensor_grid,
-            stack_grid=stack_grid
-            )
+            stack_grid=stack_grid,
+            load_normalized_tiles=args.load_normalized_tiles
+            ) for current_split in ['train', 'test', 'val']]
 
     if args.dataset=='msi-kather':
         train_indices, val_indices = get_train_val_indices(train_dataset, val_split=args.validation_split)
@@ -475,6 +450,9 @@ def main(_run, _log):
     if 'debug' not in vars(args).keys():
         args.debug = False
 
+    if 'load_normalized_tiles' not in vars(args).keys():
+        args.load_normalized_tiles = False
+
     set_seed(args.seed)
 
     if 'train_extractor_on_generated_labels' in vars(args).keys():
@@ -546,30 +524,15 @@ def main(_run, _log):
 
         tcga_transform = TransformsSimCLR(size=224, henorm=he_normalization, path_to_target_im=he_norm_target).test_transform
 
-        train_dataset = dataset_tcga(
+        train_dataset, test_dataset, val_dataset = [dataset_tcga(
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=tcga_transform,
             split_num=args.kfold,
             label=args.ddr_label,
-            split='train'
-            )     
-        test_dataset = dataset_tcga(
-            csv_file=args.path_to_msi_data, 
-            root_dir=args.root_dir_for_tcga_tiles, 
-            transform=tcga_transform,
-            split_num=args.kfold,
-            label=args.ddr_label,
-            split='test'
-            )
-        val_dataset = dataset_tcga(
-            csv_file=args.path_to_msi_data, 
-            root_dir=args.root_dir_for_tcga_tiles, 
-            transform=tcga_transform,
-            split_num=args.kfold,
-            label=args.ddr_label,
-            split='val'
-            )
+            split=current_split,
+            load_normalized_tiles=args.load_normalized_tiles
+            ) for current_split in ['train', 'test', 'val']]
     else:
         raise NotImplementedError
 
