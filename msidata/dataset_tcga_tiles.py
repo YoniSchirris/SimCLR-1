@@ -25,7 +25,7 @@ class TiledTCGADataset(Dataset):
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
     def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, tensor_per_wsi=False, load_tensor_grid=False,
-                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga', stack_grid=False):
+                    precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga', stack_grid=False, load_normalized_tiles=False):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -35,21 +35,23 @@ class TiledTCGADataset(Dataset):
         """
 
         assert (not tensor_per_patient), "tensor_per_patient is deprecated, please use tensor_per_wsi, as this makes more sense generally, especially for grids"
-        self.split_num=1 # Which k-fold for train-val split? ## TODO DELETE THIS, THIS ISNT BEING USED, WE ONLY USE SPLIT_NUM
         self.split = split
         self.label=label
         self.dataset = dataset
 
-        # self.labels = pd.read_csv(csv_file)
+        # Load normalized tiles? For now, we hardcode the specific normalization, which is a macenko normalization using kather's target tile.
+        if load_normalized_tiles:
+            self.append_with = '_norm_mac_kath'
+
         self.precomputed=precomputed
         self.precomputed_from_run = precomputed_from_run
         if precomputed:
             if precomputed_from_run:
-                self.append_with=f'_{precomputed_from_run}.pt'
+                self.append_with += f'_{precomputed_from_run}.pt'
             else:
-                self.append_with=f'.pt'
+                self.append_with += f'.pt'
         else:
-            self.append_with='.jpg'
+            self.append_with += '.jpg'
 
         self.sampling_strategy=sampling_strategy    # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
         self.tensor_per_wsi=tensor_per_wsi          # Unused, as we already use root dir + explicit CSV. But used in Splitter.py
