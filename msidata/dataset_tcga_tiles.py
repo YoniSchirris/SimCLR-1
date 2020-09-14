@@ -226,8 +226,17 @@ class TiledTCGADataset(Dataset):
                 import sys
                 sys.exit()
             if self.transform:
-                tile= self.transform(tile)
+                try:
+                    tile= self.transform(tile)
+                except:
+                    print(f"Transform didn't work! It is for this image: {img_name}")
+                    tile = np.asarray(tile)
+                    tile= tile.transpose((2, 0, 1))
+                    tile= torch.from_numpy(tile).float()
+
+
             else:
+                tile = np.asarray(tile)
                 tile= tile.transpose((2, 0, 1))
                 tile= torch.from_numpy(tile).float()
 
