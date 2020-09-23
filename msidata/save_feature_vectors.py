@@ -72,14 +72,16 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
             print(f"Step [{step}/{len(loader)}]\t Computing features...")
 
 
-def aggregate_patient_vectors(args, root_dir, append_with='', grid=False):
+def aggregate_patient_vectors(args, root_dir, append_with='', grid=False, data=None):
     print(f"## Aggregating vectors per patient in {root_dir}")
     if args.dataset == "msi-kather":
-        data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
+        if not data:
+            data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
         identifier = 'patient_id' # We don't have clear information about separate WSIs, so we stack all tiles from a patient in a single tensor
         extension = '.png'
     elif args.dataset == "msi-tcga":
-        data = pd.read_csv(root_dir)  # csv is given as root dir
+        if not data:
+            data = pd.read_csv(root_dir)  # csv is given as root dir
         identifier = 'dot_id'   # We have a clear dot_id per WSI, and will thus create a stack / grid for each WSI separately
         extension = '.jpg'
 

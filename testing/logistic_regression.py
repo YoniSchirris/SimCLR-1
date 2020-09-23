@@ -362,7 +362,7 @@ def get_precomputed_dataloader(args, run_id):
             tensor_per_wsi=args.load_wsi_level_tensors,
             split_num=args.kfold,
             label=args.ddr_label,
-            split='train',
+            split=current_split,
             load_tensor_grid=args.load_tensor_grid,
             stack_grid=stack_grid,
             load_normalized_tiles=args.load_normalized_tiles
@@ -694,8 +694,12 @@ def main(_run, _log):
             infer_and_save(loader=test_loader, context_model=extractor, device=args.device, append_with=f'_{run_id}', model_type=args.logistic_extractor)
 
             print("### Aggregating saved feature vectors into patient-level tensors ###")
-            aggregate_patient_vectors(args, root_dir=args.path_to_msi_data, append_with=f'_{run_id}')
-            aggregate_patient_vectors(args, root_dir=args.path_to_test_msi_data, append_with=f'_{run_id}')
+            print("### Aggregating for train...")
+            aggregate_patient_vectors(args, root_dir=args.path_to_msi_data, append_with=f'_{run_id}', grid=True, data=train_dataset.labels)
+            print("### Aggregating for val...")
+            aggregate_patient_vectors(args, root_dir=args.path_to_msi_data, append_with=f'_{run_id}', grid=True, data=val_dataset.labels)
+            print("### Aggregating for test...")
+            aggregate_patient_vectors(args, root_dir=args.path_to_msi_data, append_with=f'_{run_id}', grid=True, data=test_dataset.labels)
             
             # Overwriting previous variable names to reduce memory load
             train_loader, val_loader, test_loader = get_precomputed_dataloader(args, run_id)
