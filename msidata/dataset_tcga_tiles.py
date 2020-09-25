@@ -24,7 +24,7 @@ class TiledTCGADataset(Dataset):
     """Dataset class for tiled WSIs from TCGA
     Requires 'create_complete_data_file.py' to be run in order to get paths + labels"""
 
-    def __init__(self, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, tensor_per_wsi=False, load_tensor_grid=False,
+    def __init__(self, args, csv_file, root_dir, transform=None, sampling_strategy='tile', tensor_per_patient=False, tensor_per_wsi=False, load_tensor_grid=False,
                     precomputed=False, precomputed_from_run=None, split_num=1, label='msi', split=None, dataset='msi-tcga', stack_grid=False, load_normalized_tiles=False):
         """
         Args:
@@ -33,7 +33,7 @@ class TiledTCGADataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-
+        self.args = args
         assert (not tensor_per_patient), "tensor_per_patient is deprecated, please use tensor_per_wsi, as this makes more sense generally, especially for grids"
         self.split = split
         self.label=label
@@ -203,6 +203,10 @@ class TiledTCGADataset(Dataset):
                     # This already flattens it, as otherwise the object wouldn't make sense according to torch
                     # Permute to make it Cx(WxH)
                     tile = tile[((tile.float().std(dim=2) != 0) | (tile.sum(dim=2) != 0))]
+                    if 'test_deepmil_subsample' in vars(self.args).keys():
+                        SUBSAMPLE = args.test_deepmil_subsample
+                        if not tile.permute(1,0).shape[1] < SUBSAMPLE: # Only if there are more than to-be-subsampled tiles...
+                            tile = tile[torch.randperm(tile.shape[0])[:SUBSAMPLE]]
                     tile = tile.permute(1,0)
                     stack_size = tile.shape[1]
                     if stack_size < target_size:

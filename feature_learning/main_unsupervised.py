@@ -183,6 +183,7 @@ def main(_run, _log):
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
         assert (args.root_dir_for_tcga_tiles), "Please provide the root dir for the tcga tiles"
         train_dataset = dataset_tcga(
+            args=args,        
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=transform,

@@ -354,6 +354,7 @@ def get_precomputed_dataloader(args, run_id):
 
     elif args.dataset == 'msi-tcga':
         train_dataset, test_dataset, val_dataset = [dataset_tcga(
+            args=args,
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=None,
@@ -453,6 +454,10 @@ def main(_run, _log):
     if 'load_normalized_tiles' not in vars(args).keys():
         args.load_normalized_tiles = False
 
+    if 'test_deepmil_subsample' in vars(args).keys():
+        print(f"*=*=*=*=* We will perform a subsampling experiment with {args.test_deepmil_subsample} subsampled tiles *=*=*=*=*")
+
+
     set_seed(args.seed)
 
     if 'train_extractor_on_generated_labels' in vars(args).keys():
@@ -525,6 +530,7 @@ def main(_run, _log):
         tcga_transform = TransformsSimCLR(size=224, henorm=he_normalization, path_to_target_im=he_norm_target).test_transform
 
         train_dataset, test_dataset, val_dataset = [dataset_tcga(
+            args=args,
             csv_file=args.path_to_msi_data, 
             root_dir=args.root_dir_for_tcga_tiles, 
             transform=tcga_transform,
