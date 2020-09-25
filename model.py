@@ -41,7 +41,13 @@ def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''
         #TODO make more flexible
         #TODO Add several resnets
         #TODO Add possibility of loading previous models
-        backbone = models.resnet18(pretrained=False)
+        backbones = {
+            "resnet18": torchvision.models.resnet18(pretrained=False),
+            "resnet50": torchvision.models.resnet50(pretrained=False),
+            "shufflenetv2_x1_0": torchvision.models.shufflenet_v2_x1_0(pretrained=False)
+        }
+
+        backbone = backbones[args.resnet]
         n_features = backbone.fc.in_features
 
         if reload_model:
