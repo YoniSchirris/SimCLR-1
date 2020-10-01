@@ -182,7 +182,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             if args.classification_head not in ['linear', 'linear-deepmil']:
                 # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
                 # If we use a tile-level prediciton, group and mean create a fraction prediction
-                val_data, rocauc = compute_roc_auc(val_patients, val_labels, val_preds)
+                val_data, rocauc = compute_roc_auc(args, val_patients, val_labels, val_preds, final_test=False)
                 writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
                 writer.add_scalar("rocauc/val", rocauc, epoch)
                 val_roc.append(rocauc)
@@ -207,9 +207,9 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
     return loss_epoch, accuracy_epoch, val_losses, val_roc, global_step
 
 
-def validate(args, loader, extractor, model, criterion, optimizer):
+def validate(args, loader, extractor, model, criterion, optimizer, final_test=False):
     loss_epoch, accuracy_epoch = 0, 0
-    labels, preds, patients, img_names = [], [], [], []
+    labels, preds, patients, img_names, attentions, attention_gradients = [], [], [], [], [], []
 
     model.eval()
 
@@ -268,7 +268,10 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 preds += predicted.cpu().tolist()
 
         elif args.classification_head == 'deepmil':
-            with torch.no_grad():
+            if final_test:
+                x.requires_grad = True
+            with torch.set_grad_enabled(final_test): ## We do want gradients for the final test, in order to do some nice visualization with the gradients & attention
+
                 y = y.long() # Might be a float when using TCGA data due to groupby.mean() operator
                 Y_prob, Y_hat, A = model.forward(x)
                 loss = criterion(Y_prob, y)
@@ -277,7 +280,15 @@ def validate(args, loader, extractor, model, criterion, optimizer):
                 error, _ = model.calculate_classification_error(y, Y_hat)
                 acc = 1. - error        
                 binary_Y_prob = Y_prob.softmax(dim=1)[:,1] # Get the probability of it being class 1
-                preds += binary_Y_prob.cpu().tolist()       
+                preds += binary_Y_prob.cpu().tolist() 
+
+                ## Get the DeepMIL attention gradients
+                Y_real_prob = Y_prob.softmax(dim=1) # actually, deepmil returns Y_out, which is softmaxed by the CE loss
+                Y_real_prob[:1].backward()
+                dPositiveClassdA = model.A_grad
+
+                attentions += A.cpu().tolist()
+                attention_gradients += dPositiveClassdA.cpu().tolist()
 
         elif args.classification_head == 'linear-deepmil':
             with torch.no_grad():
@@ -309,7 +320,7 @@ def validate(args, loader, extractor, model, criterion, optimizer):
             # Happens when using dataset_Msi_features_with_patients, as we return the patient id as a string, which can't be tensorfied
             patients += list(patient)
 
-    return loss_epoch, accuracy_epoch, labels, preds, patients
+    return loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients
 
 
 def get_precomputed_dataloader(args, run_id):
@@ -426,12 +437,16 @@ def write_hparams(writer, config, metric):
 
     writer.add_hparams(config_vars, metric)
 
-def compute_roc_auc(patients, labels, preds):
+def compute_roc_auc(args, patients, labels, preds, final_test=False, attentions=None, attention_gradients=None):
     data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
+    if final_test:
+        if args.classification_head == 'deepmil':
+            data['attention'] = attentions
+            data['attention_gradients'] = attention_gradients
     dfgroup = data.groupby(['patient']).mean()
     labels = dfgroup['labels'].values
     preds = dfgroup['preds'].values
-    rocauc=metrics.roc_auc_score(y_true=labels, y_score=preds)
+    rocauc = metrics.roc_auc_score(y_true=labels, y_score=preds)
     return data, rocauc
 
 def compute_r2(patients, labels, preds):
@@ -768,8 +783,8 @@ def main(_run, _log):
         model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
         model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
             
-    loss_epoch, accuracy_epoch, labels, preds, patients = validate(
-        args, arr_test_loader, extractor, model, criterion, optimizer
+    loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients = validate(
+        args, arr_test_loader, extractor, model, criterion, optimizer, final_test=True
     )
 
 
@@ -778,7 +793,7 @@ def main(_run, _log):
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     if 'linear' not in args.classification_head:
         # Logistic regression, using ROC AUC as metric
-        final_data, rocauc = compute_roc_auc(patients, labels, preds)
+        final_data, rocauc = compute_roc_auc(args, patients, labels, preds, final_test=True, attentions, attention_gradients)
         writer.add_scalar("rocauc/test", rocauc)
         write_hparams(writer, args, {'hparam/rocauc': rocauc })
         _run.log_scalar('test/rocauc', rocauc, 0)
