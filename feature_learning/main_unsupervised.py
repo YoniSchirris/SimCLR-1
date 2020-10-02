@@ -89,14 +89,23 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     
     return loss_epoch
 
-def train_byol(args, train_loader, model, criterion, optimizer, writer):
+def train_byol(args, train_loader, model, criterion, optimizer, writer, gradient_accumulation_target_batch_size=4096):
+    if 'byol_gradient_accumulation_target_batch_size' in vars(args).keys():
+        gradient_accumulation_target_batch_size = args.byol_gradient_accumulation_target_batch_size
+
     loss_epoch = 0
-    print("Training BYOL!")
+    loss_accumulation = 0
     t_port=0
     t_model=0
     t_data=0
     total_time=0
     t0=time.time()
+    
+    accumulate_gradient_steps = gradient_accumulation_target_batch_size / train_loader.batch_size
+
+    print(f"Training BYOL! Batch size of {train_loader.batch_size}, being accumulated to a virtual batch size of {gradient_accumulation_target_batch_size}")
+
+
     for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
         # augmentations are done within the model
         # loss is computed within the model
@@ -108,27 +117,34 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer):
         t2=time.time()
 
         loss = model(image_one=x_i, image_two=x_j)
-        optimizer.zero_grad()
         loss.backward()
-        optimizer.step()
-        model.update_moving_average()
 
-        t3=time.time()
+        loss_accumulation += loss.cpu().item()
+        loss_epoch += loss.cpu().item()
 
-        loss_epoch += loss.item()
 
-        t_data += t1-t0
-        t_port += t2-t1
-        t_model += t3-t2
-        total_time += t3-t0
-        if step % 50 == 0:
-            print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {loss.item()}")
-            print(f"Total: {total_time} \t port: {t_port/total_time} \t model: {t_model/total_time} \t data: {t_data/total_time}")
+        if (step+1) % accumulate_gradient_steps == 0:
+            print(f"Updating model at step {step+1}")
+            optimizer.step()
+            model.update_moving_average()
+            optimizer.zero_grad()
 
-        writer.add_scalar("Loss/train_epoch", loss.item(), args.global_step)
+            t3=time.time()
+
+            t_data += t1-t0
+            t_port += t2-t1
+            t_model += t3-t2
+            total_time += t3-t0
+
+            mean_accumulated_loss = (loss_accumulation / accumulate_gradient_steps)
+            loss_accumulation = 0
+            if ((step+1) % (accumulate_gradient_steps*5))  == 0:
+                print(f"{time.ctime()} | Step [{step}/{len(train_loader)}]\t Loss: {mean_accumulated_loss}")
+                print(f"Total: {total_time} \t port: {t_port/total_time} \t model: {t_model/total_time} \t data: {t_data/total_time}")
+
+            writer.add_scalar("Loss/train_epoch", mean_accumulated_loss, args.global_step)
 
         args.global_step += 1
-
         t0=time.time()
 
     return loss_epoch

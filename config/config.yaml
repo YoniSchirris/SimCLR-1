@@ -4,6 +4,7 @@ batch_size: 32
 workers: 16
 start_epoch: 0
 epochs: 100
+byol_gradient_accumulation_target_batch_size: 4096
 kfold: 1
 
 #Data options
@@ -21,6 +22,8 @@ path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPredicti
 he_norm: True # Whether or not to use H&E normalization in the test transform
 he_norm_method: 'macenko' # Which H&E normalization method to use. For now, only 'macenko'
 he_norm_target: '/project/yonis/tcga_brca_dx/target_image_macenko/tile1000.jpg' # Which tile to use as target distribution
+
+use_normalized_images: True
 
 pretrain: True 
 load_patient_level_tensors: True # Only used for Kather data
