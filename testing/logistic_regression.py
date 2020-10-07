@@ -37,7 +37,7 @@ from sklearn import metrics
 def infer(args, loader, context_model, device):
     # get encoding of images
     feature_vector, labels_vector, patients, imgs = [], [], [], []
-    for step, (x, y, patient, img_name) in enumerate(loader):
+    for step, (x, y, patient, img_name, _) in enumerate(loader):
         x = x.to(device)
         with torch.no_grad():
             if args.logistic_extractor == 'simclr':
@@ -176,13 +176,13 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
          # Evaluate on validation set
         if global_step % args.evaluate_every == 0:
             # evaluate
-            val_loss, val_accuracy, val_labels, val_preds, val_patients = validate(args, val_loader, extractor, model, criterion, optimizer)
+            val_loss, val_accuracy, val_labels, val_preds, val_patients, _, _, _, _ = validate(args, val_loader, extractor, model, criterion, optimizer, final_test=False)
             val_losses.append(val_loss / len(val_loader))
 
             if args.classification_head not in ['linear', 'linear-deepmil']:
                 # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
                 # If we use a tile-level prediciton, group and mean create a fraction prediction
-                val_data, rocauc = compute_roc_auc(args, val_patients, val_labels, val_preds, final_test=False)
+                val_data, rocauc = compute_roc_auc(args, val_patients, val_labels, val_preds)
                 writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
                 writer.add_scalar("rocauc/val", rocauc, epoch)
                 val_roc.append(rocauc)
@@ -209,7 +209,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
 
 def validate(args, loader, extractor, model, criterion, optimizer, final_test=False):
     loss_epoch, accuracy_epoch = 0, 0
-    labels, preds, patients, img_names, attentions, attention_gradients = [], [], [], [], [], []
+    labels, preds, patients, img_names, attentions, attention_gradients, subsample_indices = [], [], [], [], [], [], []
 
     model.eval()
 
@@ -219,6 +219,8 @@ def validate(args, loader, extractor, model, criterion, optimizer, final_test=Fa
         x = data[0]
         y = data[1]
         patient = data[2]
+        img_names += data[3] # a list of strings, each of one patient -> e.g. ['grid_123.pt', 'grid_234.pt', 'grid_345.pt', 'grid_456.pt']
+        subsample_indices += data[4].cpu().tolist() # a list of indices per patient -> e.g. [ [1, 2, 6, 7] , [4, 6, 8, 10] , [1, 14, 17, 200] ]
 
         x = x.to(args.device)
         y = y.to(args.device)
@@ -281,14 +283,26 @@ def validate(args, loader, extractor, model, criterion, optimizer, final_test=Fa
                 acc = 1. - error        
                 binary_Y_prob = Y_prob.softmax(dim=1)[:,1] # Get the probability of it being class 1
                 preds += binary_Y_prob.cpu().tolist() 
+                if final_test:
+                    # print(f"Shape of x: {x.shape}")
+                    # print(f"Shape of A: {A.shape}")
+                    # print(f"Shape of binary_Y_prob: {binary_Y_prob}")
 
-                ## Get the DeepMIL attention gradients
-                Y_real_prob = Y_prob.softmax(dim=1) # actually, deepmil returns Y_out, which is softmaxed by the CE loss
-                Y_real_prob[:1].backward()
-                dPositiveClassdA = model.A_grad
+                    ## Get the DeepMIL attention gradients
+                    for i, patient_probability in enumerate(binary_Y_prob): # Pytorch can't do elemnt-wise backwards
 
-                attentions += A.cpu().tolist()
-                attention_gradients += dPositiveClassdA.cpu().tolist()
+                        # print(f"Shape of patient probability: {patient_probability}")
+                        
+                        patient_probability.backward(retain_graph=True) # So we do a backward pass per patient
+                        dPositiveClassdA = model.A_grad[i].flatten() # Which means we now get a gradient from attention to class probability for each tile for the patient
+                        # since attention is batch x tiles x 1, we want the index of the patient we look at now, and flatten it.
+                        
+                        # print(f"Shape of a single dPositiveClassdA: {dPositiveClassdA.shape}")
+                        # print(f"{i}: {dPositiveClassdA}")
+                        attention_gradients.append(dPositiveClassdA.cpu().tolist()) # We save these as a list per patient
+                        model.zero_grad() # We remove the created gradients, so that they are not accumulated
+
+                    attentions += A.flatten(start_dim=1, end_dim=-1).cpu().tolist() # save attention as a list of attentions per patient
 
         elif args.classification_head == 'linear-deepmil':
             with torch.no_grad():
@@ -320,13 +334,13 @@ def validate(args, loader, extractor, model, criterion, optimizer, final_test=Fa
             # Happens when using dataset_Msi_features_with_patients, as we return the patient id as a string, which can't be tensorfied
             patients += list(patient)
 
-    return loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients
+    return loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices
 
 
 def get_precomputed_dataloader(args, run_id):
     print(f"### Loading precomputed feature vectors from run id:  {run_id} ####")
 
-    if args.dataset == 'msi-tcga':
+    if args.dataset in ['msi-tcga', 'basis']:
         assert ('load_wsi_level_tensors' in vars(args).keys()), "For TCGA we switched to WSI-level tensors. Please add 'load_wsi_level_tensors' (bool) to your config file"
 
     #assert(args.load_patient_level_tensors and args.logistic_batch_size==1) or not args.load_patient_level_tensors, "We can only use batch size=1 for patient-level tensors, due to different size of tensors"
@@ -363,7 +377,7 @@ def get_precomputed_dataloader(args, run_id):
             seed=args.seed
         )
 
-    elif args.dataset == 'msi-tcga':
+    elif args.dataset in ['msi-tcga', 'basis']:
         train_dataset, test_dataset, val_dataset = [dataset_tcga(
             args=args,
             csv_file=args.path_to_msi_data, 
@@ -385,7 +399,7 @@ def get_precomputed_dataloader(args, run_id):
         train_sampler = SubsetRandomSampler(train_indices)
         val_sampler = SubsetRandomSampler(val_indices)
         val_dataset=train_dataset
-    elif args.dataset=='msi-tcga':
+    elif args.dataset in ['msi-tcga','basis']:
         train_sampler=None
         val_sampler=None
 
@@ -437,12 +451,8 @@ def write_hparams(writer, config, metric):
 
     writer.add_hparams(config_vars, metric)
 
-def compute_roc_auc(args, patients, labels, preds, final_test=False, attentions=None, attention_gradients=None):
+def compute_roc_auc(args, patients, labels, preds):
     data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
-    if final_test:
-        if args.classification_head == 'deepmil':
-            data['attention'] = attentions
-            data['attention_gradients'] = attention_gradients
     dfgroup = data.groupby(['patient']).mean()
     labels = dfgroup['labels'].values
     preds = dfgroup['preds'].values
@@ -456,6 +466,46 @@ def compute_r2(patients, labels, preds):
     preds = dfgroup['preds'].values # all continues values
     r2=metrics.r2_score(y_true=labels, y_pred=preds)
     return data, r2
+
+def save_attention(img_names, attentions, attention_gradients, subsample_indices, out_dir, humane_readable_time, epoch):
+
+    all_x_coords, all_y_coords, all_tile_names, all_patient_ids = [], [], []
+
+    for img_name, subsample_indices_per_patient, attention_per_patient, attention_gradient_per_patient in zip(img_names, subsample_indices, attentions, attention_gradients):
+
+        # read grid with tiles
+        meta_img_name = img_name.replace('grid_extractor', 'grid_paths_and_coords_extractor')
+        meta_img = torch.load(meta_img_name, map_location='cpu')
+        patient_id = img_name[0].split('/')[5].split('case-')[1] # all img names are from the same patient ID
+        tile_names = list(meta_img[0])
+        coords = meta_img[1]
+
+        tile_names = [tile_names[i] for i in subsample_indices_per_patient]
+        x_coords_unsampled = coords[:,0]
+        y_coords_unsampled = coords[:,1]
+        x_coords = [x_coords_unsampled[i] for i in subsample_indices_per_patient]
+        y_coords = [y_coords_unsampled[i] for i in subsample_indices_per_patient]
+
+
+        # We pad the left withe [None]s, because the subsample indices might be smaller than the actual array, and therefore smaller than the attention array
+        # In order to make DeepMIL work with a bigger batch_size than 1, we pad each "bag" with zero-vectors. For consistency's sake, we continued doing this when
+        # subsampling. However, in this case, this would lead to a larger attention vector than there are actual images. This would not be savable.
+        # However, since we want to see how much attention there is on zero-vectors (as a sanity check) we want to save this, but with empty tile names and empty
+        # coordinates
+        tile_names = [None] * (len(attention_per_patient) - len(tile_names)) + tile_names
+        x_coords = [None] * (len(attention_per_patient) - len(x_coords)) + x_coords
+        y_coords = [None] * (len(attention_per_patient) - len(y_coords)) + y_coords
+        patient_ids = patient * len(tile_names)
+        
+
+        all_x_coords += x_coords # These are all a single list of objects now
+        all_y_coords += y_coords
+        all_tile_names += tile_names
+        all_patient_ids += patient_ids
+
+    attention_df = pd.DataFrame({"tile_name": all_tile_names, "patient_id": all_patient_ids, "attention": np.array(attentions).flatten(), "attention_gradients": np.array(attention_gradients).flatten(), 'x': all_x_coords, 'y': all_y_coords})
+
+    attention_df.to_csv(f'{out_dir}/attention_output_epoch_{epoch+1}_{humane_readable_time}.csv')
 
 @ex.automain
 def main(_run, _log):
@@ -519,7 +569,7 @@ def main(_run, _log):
             label=label,
             load_labels_from_run=load_labels_from_run
         )
-    elif args.dataset == "msi-tcga":
+    elif args.dataset in ["msi-tcga", "basis"]:
         args.data_pretrain_fraction=1    
         assert ('.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
         assert ('root_dir_for_tcga_tiles' in vars(args).keys()), "Please provide the root dir for the tcga tiles"
@@ -552,7 +602,8 @@ def main(_run, _log):
             split_num=args.kfold,
             label=args.ddr_label,
             split=current_split,
-            load_normalized_tiles=args.load_normalized_tiles
+            load_normalized_tiles=args.load_normalized_tiles,
+            dataset=args.dataset
             ) for current_split in ['train', 'test', 'val']]
     else:
         raise NotImplementedError
@@ -652,7 +703,7 @@ def main(_run, _log):
 
         drop_last = not (args.precompute_features and not args.precompute_features_in_memory) # if we precompute features, but NOT in memory, do not drop last
 
-        if args.dataset == 'msi-tcga':
+        if args.dataset in ['msi-tcga','basis']:
             # For msi-tcga, we have pre-split everything
             train_sampler=None
             val_sampler=None
@@ -777,13 +828,14 @@ def main(_run, _log):
 
     else:
         # If we haven't run any epochs, we will load the model from the given parameters
-        if extractor:
-            extractor_fp = os.path.join(args.model_path, "extractor_checkpoint_{}.tar".format(args.epoch_num))
-            extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
-        model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
-        model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+        if args.reload_model:
+            if extractor:
+                extractor_fp = os.path.join(args.model_path, "extractor_checkpoint_{}.tar".format(args.epoch_num))
+                extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
+            model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
+            model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
             
-    loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients = validate(
+    loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices = validate(
         args, arr_test_loader, extractor, model, criterion, optimizer, final_test=True
     )
 
@@ -793,7 +845,7 @@ def main(_run, _log):
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     if 'linear' not in args.classification_head:
         # Logistic regression, using ROC AUC as metric
-        final_data, rocauc = compute_roc_auc(args, patients, labels, preds, final_test=True, attentions, attention_gradients)
+        final_data, rocauc = compute_roc_auc(args, patients, labels, preds)
         writer.add_scalar("rocauc/test", rocauc)
         write_hparams(writer, args, {'hparam/rocauc': rocauc })
         _run.log_scalar('test/rocauc', rocauc, 0)
@@ -815,7 +867,13 @@ def main(_run, _log):
 
     humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
     print(f'This is the out dir {args.out_dir}')
-    final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')
+
+    final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')    
+
+    if args.classification_head == 'deepmil':
+        # This means we'll have loaded a stacked grid, we'll have returned subsample indices, we'll have meaningful attentions.
+        # Now save it for easy visualization..
+        save_attention(img_names, attentions, attention_gradients, subsample_indices, args.out_dir, humane_readable_time, epoch)
 
     
     

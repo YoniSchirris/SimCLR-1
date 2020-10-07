@@ -42,6 +42,8 @@ class TiledTCGADataset(Dataset):
         # Load normalized tiles? For now, we hardcode the specific normalization, which is a macenko normalization using kather's target tile.
         if load_normalized_tiles:
             self.append_with = '_norm_mac_kath'
+        else:
+            self.append_with = ''
 
         self.precomputed=precomputed
         self.precomputed_from_run = precomputed_from_run
@@ -123,6 +125,8 @@ class TiledTCGADataset(Dataset):
 
         row = self.labels.iloc[idx]
 
+        subsample_indices = [] # will be used when subsampling the precomputed features for DeepMIL
+
         
         if self.label:
             label=row[self.label]
@@ -194,7 +198,9 @@ class TiledTCGADataset(Dataset):
                     tile = torch.nn.functional.pad(tile, (pad_h, 0, pad_w, 0), 'constant', 0) # zero-padding up to target size to make it survive the convolutions
                 else:
                     if 'subsample' in self.csv_file:
-                        target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
+                        #TODO CHANGE BACK
+                        target_size = 505 # I'm adding some black tensors so it learns to ignore it, instead of thinking that those WSIs with few tiles are indicative of something.
+                        #target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
                                       # but often not by too much (this helps the network to learn that a zero-tensor is never meaningful information)
                     else:
                         target_size = 12000 # TCGA BRCA FFPE maximum has 11,000 tiles (mean=3600 tiles)
@@ -204,9 +210,17 @@ class TiledTCGADataset(Dataset):
                     # Permute to make it Cx(WxH)
                     tile = tile[((tile.float().std(dim=2) != 0) | (tile.sum(dim=2) != 0))]
                     if 'test_deepmil_subsample' in vars(self.args).keys():
-                        SUBSAMPLE = args.test_deepmil_subsample
+                        SUBSAMPLE = self.args.test_deepmil_subsample
+                        target_size = SUBSAMPLE
                         if not tile.permute(1,0).shape[1] < SUBSAMPLE: # Only if there are more than to-be-subsampled tiles...
-                            tile = tile[torch.randperm(tile.shape[0])[:SUBSAMPLE]]
+                            subsample_indices = torch.randperm(tile.shape[0])[:SUBSAMPLE].sort().values # Sort them for clarity
+                            tile = tile[subsample_indices]
+                        else:
+                            subsample_indices = [i for i in range(tile.shape[0])]
+
+                    else:
+                        subsample_indices = [i for i in range(tile.shape[0])] # this means we don't subsample, but we'll still return a full list of 'indices' for consistency's sake
+
                     tile = tile.permute(1,0)
                     stack_size = tile.shape[1]
                     if stack_size < target_size:
@@ -217,7 +231,11 @@ class TiledTCGADataset(Dataset):
             try:
                 # tile = io.imread(img_name)
                 tile = PIL.Image.open(img_name)
-                tile.filename = {'tile': img_name, 'wsi': f"{self.dot_id_to_tcga_id[dot_id]}.{dot_id}.svs"} # PIL has the tile filename, but we need the accompanying WSI name
+
+                # UNCOMMENT BELOW FOR BABAK NORMALIZATION
+                #tile.filename = {'tile': img_name, 'wsi': f"{self.dot_id_to_tcga_id[dot_id]}.{dot_id}.svs"} # PIL has the tile filename, but we need the accompanying WSI name
+
+                tile.filename = {'tile': img_name}
 
                 #TODO Possibly change this to PIL.Image.load(img_name).
                 # This might then keep the filename in the object.
@@ -236,15 +254,14 @@ class TiledTCGADataset(Dataset):
                     tile= self.transform(tile)
                 except:
                     print(f"Transform didn't work! It is for this image: {img_name}")
-                    tile = np.asarray(tile)
+                    tile = np.asarray(tile).copy()
+
                     tile= tile.transpose((2, 0, 1))
                     tile= torch.from_numpy(tile).float()
-
-
             else:
                 tile = np.asarray(tile)
                 tile= tile.transpose((2, 0, 1))
                 tile= torch.from_numpy(tile).float()
-
-        sample = (tile, label, patient_id, img_name)
+        
+        sample = (tile, label, patient_id, img_name, subsample_indices)
         return sample

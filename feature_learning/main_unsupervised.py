@@ -38,7 +38,7 @@ def train_simclr(args, train_loader, model, criterion, optimizer, writer):
     t_data=0
     total_time = 0 
 
-    for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
+    for step, ((x_i, x_j), _, _, _, _) in enumerate(train_loader):
         t1=time.time()
 
         optimizer.zero_grad()
@@ -106,7 +106,7 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer, gradient
     print(f"Training BYOL! Batch size of {train_loader.batch_size}, being accumulated to a virtual batch size of {gradient_accumulation_target_batch_size}")
 
 
-    for step, ((x_i, x_j), _, _, _) in enumerate(train_loader):
+    for step, ((x_i, x_j), _, _, _, _) in enumerate(train_loader):
         # augmentations are done within the model
         # loss is computed within the model
         t1 = time.time()
@@ -124,7 +124,6 @@ def train_byol(args, train_loader, model, criterion, optimizer, writer, gradient
 
 
         if (step+1) % accumulate_gradient_steps == 0:
-            print(f"Updating model at step {step+1}")
             optimizer.step()
             model.update_moving_average()
             optimizer.zero_grad()
