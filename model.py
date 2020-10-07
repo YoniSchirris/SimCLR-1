@@ -42,9 +42,9 @@ def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''
         #TODO Add several resnets
         #TODO Add possibility of loading previous models
         backbones = {
-            "resnet18": torchvision.models.resnet18(pretrained=False),
-            "resnet50": torchvision.models.resnet50(pretrained=False),
-            "shufflenetv2_x1_0": torchvision.models.shufflenet_v2_x1_0(pretrained=False)
+            "resnet18": models.resnet18(pretrained=False),
+            "resnet50": models.resnet50(pretrained=False),
+            "shufflenetv2_x1_0": models.shufflenet_v2_x1_0(pretrained=False)
         }
 
         backbone = backbones[args.resnet]
@@ -62,7 +62,7 @@ def load_model(args, loader, reload_model=False, model_type='simclr', prepend=''
         model = BYOL(
             net=backbone,
             image_size = 224,
-            hidden_layer='avgpool'
+            hidden_layer=-2
         )
     elif model_type == 'deepmil':
         #TODO Currently only works for resnet18 backend
