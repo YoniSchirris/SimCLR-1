@@ -75,12 +75,12 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
 def aggregate_patient_vectors(args, root_dir, append_with='', grid=False, data=None):
     print(f"## Aggregating vectors per patient in {root_dir}")
     if args.dataset == "msi-kather":
-        if not data:
+        if data == None:
             data = pd.read_csv(os.path.join(root_dir, 'data.csv'))
         identifier = 'patient_id' # We don't have clear information about separate WSIs, so we stack all tiles from a patient in a single tensor
         extension = '.png'
-    elif args.dataset == "msi-tcga":
-        if not data:
+    elif args.dataset in ["msi-tcga", "basis"]:
+        if data == None:
             data = pd.read_csv(root_dir)  # csv is given as root dir
         identifier = 'dot_id'   # We have a clear dot_id per WSI, and will thus create a stack / grid for each WSI separately
         extension = '.jpg'
@@ -92,7 +92,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False, data=N
                                                         f"tile{x['num']}{extension}"
                                                         ), axis=1)
 
-    for idx, idd in enumerate(data[identifier].unique()):    # id here 
+    for idx, idd in enumerate(data.dropna(subset=['test'])[identifier].unique()):    # id here. All nans for test/train are dropped 
         relative_img_paths = data[data[identifier] == idd]['img']
 
         relative_tensor_paths = [img_path.replace(extension, f'{append_with}.pt') for img_path in relative_img_paths]
@@ -139,7 +139,7 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False, data=N
             relative_dir = set(relative_img_paths_dirs)
             assert len(
                 relative_dir) == 1, f"A single patient have several labels! see {relative_img_paths}"
-        elif args.dataset == 'msi-tcga':
+        elif args.dataset in  ['msi-tcga', 'basis']:
             # saving them in the case dir, not the dot_id dir
             relative_img_paths_dirs = [
                 '/'.join(path.split('/')[:-3]) for path in relative_img_paths]
@@ -190,6 +190,8 @@ def main(_run, _log):
     args = argparse.Namespace(**_run.config)
     args = post_config_hook(args, _run)
 
+    print("==== Starting to save features ===")
+
     assert args.data_create_feature_vectors_fraction == 1, "Only works if we transform all tiles to vectors"
 
     args.device = torch.device(
@@ -221,62 +223,32 @@ def main(_run, _log):
                 label=label,
                 load_labels_from_run=load_labels_from_run
             )
-        elif args.dataset == "msi-tcga":
+        elif args.dataset in ["msi-tcga", "basis"]:
             args.data_pretrain_fraction = 1
             assert (
                 '.csv' in args.path_to_msi_data), "Please provide the tcga .csv file in path_to_msi_data"
             assert ('root_dir_for_tcga_tiles' in vars(args).keys()
                     ), "Please provide the root dir for the tcga tiles"
-            train_dataset = dataset_tcga(
+            train_dataset, test_dataset, val_dataset = [dataset_tcga(
+                args,
                 csv_file=args.path_to_msi_data,
                 root_dir=args.root_dir_for_tcga_tiles,
                 transform=TransformsSimCLR(size=224).test_transform,
                 split_num=args.kfold,
                 label=None,
-                split='train'
-            )
-            test_dataset = dataset_tcga(
-                csv_file=args.path_to_msi_data,
-                root_dir=args.root_dir_for_tcga_tiles,
-                transform=TransformsSimCLR(size=224).test_transform,
-                split_num=args.kfold,
-                label=None,
-                split='test'
-            )
-            val_dataset = dataset_tcga(
-                csv_file=args.path_to_msi_data,
-                root_dir=args.root_dir_for_tcga_tiles,
-                transform=TransformsSimCLR(size=224).test_transform,
-                split_num=args.kfold,
-                label=None,
-                split='val'
-            )
+                split=set_split,
+                dataset=args.dataset
+            ) for set_split in ['train', 'test', 'val']]
         else:
             raise NotImplementedError
 
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset,
+        train_loader, test_loader, val_loader = [torch.utils.data.DataLoader(
+            data_set,
             batch_size=args.batch_size,
             shuffle=False,
             drop_last=False,
-            num_workers=args.workers,
-        )
-
-        test_loader = torch.utils.data.DataLoader(
-            test_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            drop_last=False,
-            num_workers=args.workers,
-        )
-
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            drop_last=False,
-            num_workers=args.workers,
-        )
+            num_workers=args.workers
+        ) for data_set in [train_dataset, test_dataset, val_dataset]]
 
         simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
         simclr_model = simclr_model.to(args.device)
