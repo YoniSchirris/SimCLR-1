@@ -220,12 +220,12 @@ def main(_run, _log):
 
     if args.unsupervised_method=='byol':
         # Backbone is a reference to the network being used and updated. We should save the state of this network
-        model, optimizer, scheduler, backbone, _ = load_model(args, train_loader, reload_model=args.reload_model, model_type=args.unsupervised_method)
+        model, optimizer, scheduler, backbone, _ = load_model(args, reload_model=args.reload_model, model_type=args.unsupervised_method)
         
         # Criterion is defined within BYOL
         criterion = None
     else:
-        model, optimizer, scheduler = load_model(args, train_loader, reload_model=args.reload_model, model_type=args.unsupervised_method)
+        model, optimizer, scheduler = load_model(args, reload_model=args.reload_model, model_type=args.unsupervised_method)
         criterion = NT_Xent(args.batch_size, args.temperature, args.device)
 
    
