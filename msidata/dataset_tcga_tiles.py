@@ -78,6 +78,8 @@ class TiledTCGADataset(Dataset):
         if split:
             if split_num == 0 and split == 'train': # We want the train set, but not a specific fold... so we take all non-test data
                 self.labels = self.labels[~(self.labels[f'test']==1)].reset_index() # We train unsupervised on all training data, instead of only specific folds. We don't look at test data, though!
+            elif split_num == -1: # We want those tiles without any labels. This means test = nan
+                self.labels = self.labels[self.labels['test'].isnull()]
             else:
                 if split == 'train' or split == 'val': # We want the train or validation set of a specific fold...
                     append = f'_{split_num}'
@@ -109,7 +111,6 @@ class TiledTCGADataset(Dataset):
             print("There's no label given! Returning weights (1,1)")
             return torch.tensor([1,1])
         else:
-
             label_mean = self.labels[self.label].mean()
             label_weights = [1, (1-label_mean)/label_mean]
             print(f"==== Setting class balancing weights for {self.label}: {label_weights} =====")
@@ -199,8 +200,7 @@ class TiledTCGADataset(Dataset):
                 else:
                     if 'subsample' in self.csv_file:
                         #TODO CHANGE BACK
-                        target_size = 505 # I'm adding some black tensors so it learns to ignore it, instead of thinking that those WSIs with few tiles are indicative of something.
-                        #target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
+                        target_size = 550 # since we subsample 500 tiles, this will pad up every image with zero-tensors, 
                                       # but often not by too much (this helps the network to learn that a zero-tensor is never meaningful information)
                     else:
                         target_size = 12000 # TCGA BRCA FFPE maximum has 11,000 tiles (mean=3600 tiles)
@@ -208,13 +208,17 @@ class TiledTCGADataset(Dataset):
                     # Index the tile by feature vectors that do not have std=0 AND sum=0 (meaning it's a zero-tensor). 
                     # This already flattens it, as otherwise the object wouldn't make sense according to torch
                     # Permute to make it Cx(WxH)
+
                     tile = tile[((tile.float().std(dim=2) != 0) | (tile.sum(dim=2) != 0))]
+
                     if 'test_deepmil_subsample' in vars(self.args).keys():
+                        
                         SUBSAMPLE = self.args.test_deepmil_subsample
                         target_size = SUBSAMPLE
                         if not tile.permute(1,0).shape[1] < SUBSAMPLE: # Only if there are more than to-be-subsampled tiles...
                             subsample_indices = torch.randperm(tile.shape[0])[:SUBSAMPLE].sort().values # Sort them for clarity
                             tile = tile[subsample_indices]
+                            subsample_indices = subsample_indices
                         else:
                             subsample_indices = [i for i in range(tile.shape[0])]
 
@@ -227,6 +231,11 @@ class TiledTCGADataset(Dataset):
                         # always the case..
                         pad = target_size - stack_size
                         tile = torch.nn.functional.pad(tile, (pad, 0), 'constant', 0) # the tensor is Cx(HxW), we want to pad so that # pixels is same for all, so that's the last channel in shape, so we give a tuple for that   
+
+                    subsample_indices = [np.nan] * (target_size - stack_size) + subsample_indices
+                    
+
+
         else:
             try:
                 # tile = io.imread(img_name)
@@ -262,6 +271,8 @@ class TiledTCGADataset(Dataset):
                 tile = np.asarray(tile)
                 tile= tile.transpose((2, 0, 1))
                 tile= torch.from_numpy(tile).float()
-        
+
+        subsample_indices = torch.tensor(subsample_indices)
+
         sample = (tile, label, patient_id, img_name, subsample_indices)
         return sample
