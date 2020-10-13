@@ -26,6 +26,8 @@ from msidata.save_feature_vectors import infer_and_save, aggregate_patient_vecto
 from msidata.dataset_msi_features_with_patients import PreProcessedMSIFeatureDataset
 from msidata.dataset_tcga_tiles import TiledTCGADataset as dataset_tcga
 
+import matplotlib.pyplot as plt
+
 import pandas as pd
 import time
 import datetime
@@ -182,11 +184,12 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
             if args.classification_head not in ['linear', 'linear-deepmil']:
                 # COMPUTE ROCAUC PER PATIENT. If we use a patient-level prediction, group and mean doesn't do anything. 
                 # If we use a tile-level prediciton, group and mean create a fraction prediction
-                val_data, rocauc = compute_roc_auc(args, val_patients, val_labels, val_preds)
+                val_data, rocauc = compute_roc_auc(args, val_patients, val_labels, val_preds, save_curve=False)
                 writer.add_scalar("loss/val", val_loss / len(val_loader), epoch)
+                writer.add_scalar("loss/train", loss.cpu().item(), epoch)
                 writer.add_scalar("rocauc/val", rocauc, epoch)
                 val_roc.append(rocauc)
-                print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tROC AUC: {rocauc}")
+                print(f"{datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d %H:%M:%S')} | Epoch [{epoch+1}/{args.logistic_epochs}]\tStep [{step}/{len(train_loader)}]\t Train loss: {loss.cpu().item()}\tVal Loss: {val_loss / len(val_loader)}\tAccuracy: {val_accuracy / len(val_loader)}\tROC AUC: {rocauc}")
             else:
                 # COMPUTE R2 PER PATIENT.
                 val_data, r2 = compute_r2(val_patients, val_labels, val_preds)
@@ -220,7 +223,7 @@ def validate(args, loader, extractor, model, criterion, optimizer, final_test=Fa
         y = data[1]
         patient = data[2]
         img_names += data[3] # a list of strings, each of one patient -> e.g. ['grid_123.pt', 'grid_234.pt', 'grid_345.pt', 'grid_456.pt']
-        subsample_indices += data[4].cpu().tolist() # a list of indices per patient -> e.g. [ [1, 2, 6, 7] , [4, 6, 8, 10] , [1, 14, 17, 200] ]
+        subsample_indices += data[4] # a list of indices per patient -> e.g. [ [1, 2, 6, 7] , [4, 6, 8, 10] , [1, 14, 17, 200] ]
 
         x = x.to(args.device)
         y = y.to(args.device)
@@ -391,7 +394,8 @@ def get_precomputed_dataloader(args, run_id):
             split=current_split,
             load_tensor_grid=args.load_tensor_grid,
             stack_grid=stack_grid,
-            load_normalized_tiles=args.load_normalized_tiles
+            load_normalized_tiles=args.load_normalized_tiles,
+            dataset=args.dataset
             ) for current_split in ['train', 'test', 'val']]
 
     if args.dataset=='msi-kather':
@@ -451,12 +455,27 @@ def write_hparams(writer, config, metric):
 
     writer.add_hparams(config_vars, metric)
 
-def compute_roc_auc(args, patients, labels, preds):
+def compute_roc_auc(args, patients, labels, preds, save_curve=False, epoch=0):
     data = pd.DataFrame(data={'patient': patients, 'labels': labels, 'preds': preds})
     dfgroup = data.groupby(['patient']).mean()
     labels = dfgroup['labels'].values
     preds = dfgroup['preds'].values
     rocauc = metrics.roc_auc_score(y_true=labels, y_score=preds)
+
+    if save_curve:
+        fpr, tpr, threshold = metrics.roc_curve(labels, preds)
+
+        plt.title('Receiver Operating Characteristic')
+        plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % rocauc)
+        plt.legend(loc = 'lower right')
+        plt.plot([0, 1], [0, 1],'r--')
+        plt.xlim([0, 1])
+        plt.ylim([0, 1])
+        plt.ylabel('True Positive Rate')
+        plt.xlabel('False Positive Rate')
+
+        plt.savefig(f'{args.out_dir}/roc_curve_epoch_{epoch}.png')
+
     return data, rocauc
 
 def compute_r2(patients, labels, preds):
@@ -467,24 +486,26 @@ def compute_r2(patients, labels, preds):
     r2=metrics.r2_score(y_true=labels, y_pred=preds)
     return data, r2
 
-def save_attention(img_names, attentions, attention_gradients, subsample_indices, out_dir, humane_readable_time, epoch):
+def save_attention(args, img_names, attentions, attention_gradients, subsample_indices, out_dir, humane_readable_time, epoch):
 
-    all_x_coords, all_y_coords, all_tile_names, all_patient_ids = [], [], []
+    all_x_coords, all_y_coords, all_tile_names, all_patient_ids = [], [], [], []
 
     for img_name, subsample_indices_per_patient, attention_per_patient, attention_gradient_per_patient in zip(img_names, subsample_indices, attentions, attention_gradients):
 
         # read grid with tiles
         meta_img_name = img_name.replace('grid_extractor', 'grid_paths_and_coords_extractor')
         meta_img = torch.load(meta_img_name, map_location='cpu')
-        patient_id = img_name[0].split('/')[5].split('case-')[1] # all img names are from the same patient ID
+        if args.dataset == 'msi-tcga':
+            patient_id = img_name.split('/')[5].split('case-')[1] # all img names are from the same patient ID
+        elif args.dataset == 'basis':
+            patient_id = img_name.split('_')[1] # this is incorrect. img_name e.g. = /project/schirris/tiled_data_large/case-PD10010a/YID041/jpeg/tile396.jpg
         tile_names = list(meta_img[0])
         coords = meta_img[1]
-
-        tile_names = [tile_names[i] for i in subsample_indices_per_patient]
+        tile_names = [tile_names[int(i)] if not torch.isnan(i) else i for i in subsample_indices_per_patient]
         x_coords_unsampled = coords[:,0]
         y_coords_unsampled = coords[:,1]
-        x_coords = [x_coords_unsampled[i] for i in subsample_indices_per_patient]
-        y_coords = [y_coords_unsampled[i] for i in subsample_indices_per_patient]
+        x_coords = [x_coords_unsampled[int(i)] if not torch.isnan(i) else i  for i in subsample_indices_per_patient]
+        y_coords = [y_coords_unsampled[int(i)] if not torch.isnan(i) else i  for i in subsample_indices_per_patient]
 
 
         # We pad the left withe [None]s, because the subsample indices might be smaller than the actual array, and therefore smaller than the attention array
@@ -492,16 +513,17 @@ def save_attention(img_names, attentions, attention_gradients, subsample_indices
         # subsampling. However, in this case, this would lead to a larger attention vector than there are actual images. This would not be savable.
         # However, since we want to see how much attention there is on zero-vectors (as a sanity check) we want to save this, but with empty tile names and empty
         # coordinates
-        tile_names = [None] * (len(attention_per_patient) - len(tile_names)) + tile_names
-        x_coords = [None] * (len(attention_per_patient) - len(x_coords)) + x_coords
-        y_coords = [None] * (len(attention_per_patient) - len(y_coords)) + y_coords
-        patient_ids = patient * len(tile_names)
+        tile_names = [np.nan] * (len(attention_per_patient) - len(tile_names)) + tile_names
+        x_coords = [np.nan] * (len(attention_per_patient) - len(x_coords)) + x_coords
+        y_coords = [np.nan] * (len(attention_per_patient) - len(y_coords)) + y_coords
+        patient_ids = [patient_id] * len(tile_names)
         
 
         all_x_coords += x_coords # These are all a single list of objects now
         all_y_coords += y_coords
         all_tile_names += tile_names
         all_patient_ids += patient_ids
+
 
     attention_df = pd.DataFrame({"tile_name": all_tile_names, "patient_id": all_patient_ids, "attention": np.array(attentions).flatten(), "attention_gradients": np.array(attention_gradients).flatten(), 'x': all_x_coords, 'y': all_y_coords})
 
@@ -521,6 +543,12 @@ def main(_run, _log):
 
     if 'test_deepmil_subsample' in vars(args).keys():
         print(f"*=*=*=*=* We will perform a subsampling experiment with {args.test_deepmil_subsample} subsampled tiles *=*=*=*=*")
+
+    if 'deepmil_intermediate_hidden' not in vars(args).keys():
+        args.deepmil_intermediate_hidden = 128
+    
+    if 'reload_classifier' not in vars(args).keys():
+        args.reload_classifier = False
 
 
     set_seed(args.seed)
@@ -612,22 +640,20 @@ def main(_run, _log):
     if args.logistic_extractor == 'byol':
         # We get the rn18 backbone with the loaded state dict
         print("Loading BYOL model ... ")
-        _, _, _, extractor, n_features = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
+        _, _, _, extractor, n_features = load_model(args, reload_model=args.reload_model, model_type=args.logistic_extractor)
     else:
-        extractor, _, _ = load_model(args, None, reload_model=args.reload_model, model_type=args.logistic_extractor)
+        extractor, _, _ = load_model(args, reload_model=args.reload_model, model_type=args.logistic_extractor)
 
     extractor = extractor.to(args.device)
 
-    # Freeze encoder if asked for
+    # Set extractor to eval if asked for
     if args.freeze_encoder:
-        print("===== Encoder is frozen =====")
+        print("===== Extractor is frozen =====")
         extractor.eval()
     else:
-        print("===== Encoder is NOT frozen =====")
+        print("===== Extractor is NOT frozen =====")
         extractor.train()
 
-    
-    
     # Get number of features that feature extractor produces
     if args.logistic_extractor == 'simclr':
         n_features = extractor.n_features
@@ -639,51 +665,26 @@ def main(_run, _log):
 
     if 'linear' in args.classification_head:
         n_classes = 1 # Doing linear regression
-        criterion = torch.nn.MSELoss()
     else:
         n_classes = 2 # Doing logistic regression
-        criterion = torch.nn.CrossEntropyLoss(weight=train_dataset.get_class_balance().float().to(args.device)) #TODO add class balance
 
-    ## Get Classifier
+
+    ## Get classifier. Logistic / linear / deepmil / linear-deepmil
+    if 'reload_classifier' not in vars(args).keys():
+        args.reload_classifier = False
+    model, _, _ = load_model(args, reload_model=args.reload_classifier, model_type=args.classification_head, prepend='', n_features=n_features, n_classes=n_classes)
+
+    ## Get optimizer
     if args.classification_head == 'logistic' or args.classification_head == 'linear':
-        ## Logistic Regression
-        model = LogisticRegression(n_features, n_classes)
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.logistic_lr)
         else:
             optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.logistic_lr)
-
-    elif args.classification_head == 'deepmil' or args.classification_head == 'linear-deepmil':
-        model = Attention(hidden_dim=n_features, num_classes=n_classes)
+    elif args.classification_head in ['deepmil', 'linear-deepmil', 'cnn-resnet18', 'cnn-densenet']:
         if args.freeze_encoder:
             optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
         else:
             optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
-    
-    elif 'cnn' in args.classification_head :
-        # For now using resnet18 as this can handle variable size input due to the avg pool
-        # If we use batch_size = 1 we can test it all. If it works, we can think of a way to deal with this
-        if args.classification_head == 'cnn-resnet18':
-            print("==== Using resnet18 as classification head")
-            model = torchvision.models.resnet18()
-            model.fc = torch.nn.Linear(model.fc.in_features, n_classes) 
-            # v--- this is the exact Conv2d line for conv1 found in the Resnet class
-            # Instead, we manually set the in_channels to 512 instead of 3.
-            # hardcoding out_channels=64 instead of model.inplanes because inplanes gets changed during initialization
-            model.conv1 = torch.nn.Conv2d(512, 64, kernel_size=7, stride=2, padding=3,
-                                bias=False)
-        else:
-            # args.classification_head == 'cnn-densenet'
-            print("==== Using densenet161 as classification head")
-            model = torchvision.models.densenet161()
-            model.classifier = torch.nn.Linear(model.classifier.in_features, n_classes, bias=True)
-            model.features.conv0 = torch.nn.Conv2d(1024, 96, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-
-        if args.freeze_encoder:
-            optimizer = torch.optim.Adam(model.parameters(), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
-        else:
-            optimizer = torch.optim.Adam(list(extractor.parameters()) + list(model.parameters()), lr=args.deepmil_lr, betas=(0.9, 0.999), weight_decay=args.deepmil_reg)
-
     else:
         print(f"{args.classification_head} has not been implemented as classification head")
         raise NotImplementedError
@@ -793,6 +794,11 @@ def main(_run, _log):
 
     ### ============= TRAINING =============  ###
 
+    if 'linear' in args.classification_head:
+        criterion = torch.nn.MSELoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss(weight=arr_train_loader.dataset.get_class_balance().float().to(args.device)) #TODO add class balance
+
     val_losses = []
     val_roc = []
     global_step = 0
@@ -827,13 +833,17 @@ def main(_run, _log):
         model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
 
     else:
-        # If we haven't run any epochs, we will load the model from the given parameters
-        if args.reload_model:
-            if extractor:
-                extractor_fp = os.path.join(args.model_path, "extractor_checkpoint_{}.tar".format(args.epoch_num))
-                extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
-            model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
-            model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+        # clarifying that we have not trained at all
+        best_model_epoch=epoch=0
+
+        # If we haven't run any epochs, we won't do anything, because we've already loaded the model before...
+
+        # if args.reload_model:
+        #     if extractor:
+        #         extractor_fp = os.path.join(args.model_path, "extractor_checkpoint_{}.tar".format(args.epoch_num))
+        #         extractor.load_state_dict(torch.load(extractor_fp, map_location=args.device.type))
+        #     model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
+        #     model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
             
     loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices = validate(
         args, arr_test_loader, extractor, model, criterion, optimizer, final_test=True
@@ -845,7 +855,7 @@ def main(_run, _log):
     writer.add_scalar("loss/test", loss_epoch / len(arr_test_loader))
     if 'linear' not in args.classification_head:
         # Logistic regression, using ROC AUC as metric
-        final_data, rocauc = compute_roc_auc(args, patients, labels, preds)
+        final_data, rocauc = compute_roc_auc(args, patients, labels, preds, save_curve=True, epoch=best_model_epoch)
         writer.add_scalar("rocauc/test", rocauc)
         write_hparams(writer, args, {'hparam/rocauc': rocauc })
         _run.log_scalar('test/rocauc', rocauc, 0)
@@ -868,12 +878,12 @@ def main(_run, _log):
     humane_readable_time = datetime.datetime.fromtimestamp(int(time.time())).strftime('%Y-%m-%d-%H-%M-%S')
     print(f'This is the out dir {args.out_dir}')
 
-    final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{epoch+1}_{humane_readable_time}.csv')    
+    final_data.to_csv(f'{args.out_dir}/regression_output_epoch_{best_model_epoch}_{humane_readable_time}.csv')    
 
     if args.classification_head == 'deepmil':
         # This means we'll have loaded a stacked grid, we'll have returned subsample indices, we'll have meaningful attentions.
         # Now save it for easy visualization..
-        save_attention(img_names, attentions, attention_gradients, subsample_indices, args.out_dir, humane_readable_time, epoch)
+        save_attention(args, img_names, attentions, attention_gradients, subsample_indices, args.out_dir, humane_readable_time, best_model_epoch)
 
     
     
