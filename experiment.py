@@ -38,6 +38,11 @@ def my_config():
     ex.add_config(cfg)
 
     directory = "pretrain" if cfg["pretrain"] else "eval"
+
+    if "test" in cfg.keys():
+        if cfg["test"]:
+            directory = "test"
+        
     ex.observers.append(FileStorageObserver(Path("./logs", directory)))
 
     del cfg
