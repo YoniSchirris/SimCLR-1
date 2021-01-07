@@ -61,8 +61,31 @@ def load_model(args, reload_model=False, model_type='simclr', prepend='', n_feat
 
     elif 'imagenet' in model_type:
         assert (model_type in possible_non_simclr_models), f"{model_type} is not supported. Please choose a model from {possible_non_simclr_models.keys()}"
-        model = possible_non_simclr_models[model_type](pretrained=True)
+        if not 'imagenet_not_pretrained' in vars(args).keys():
+            args.imagenet_not_pretrained = False
+        if args.imagenet_not_pretrained or args.reload_model:
+            print("## Using a network from scratch!")
+            pretrained = False
+        else:
+            print("## Using an imagenet pretrained network!")
+            pretrained=True
+        model = possible_non_simclr_models[model_type](pretrained=pretrained)
         model.fc = torch.nn.Identity()
+
+        if args.reload_model:
+            model_fp = os.path.join(
+                args.model_path, "checkpoint_{}.tar".format(epoch_num)
+            )
+            if not os.path.isfile(model_fp):
+                print(f"### {model_fp} does not exist. We will try prepending with 'extractor'")
+                model_fp = os.path.join(
+                args.model_path, "extractor_checkpoint_{}.tar".format(epoch_num)
+            )
+            assert(os.path.isfile(model_fp)), f"### {model_fp} still doesn't exist. Please fix your hparams."
+            print(f'### Loading imagenet-init and finetuned extractor from: {model_fp} ###')
+            model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+        model = model.to(args.device)
+
     elif model_type == 'byol':
         #TODO make more flexible
         #TODO Add several resnets
@@ -103,11 +126,22 @@ def load_model(args, reload_model=False, model_type='simclr', prepend='', n_feat
         if model_type in ['deepmil', 'linear-deepmil']:
             if not 'test_attention_stdev' in vars(args).keys():
                 args.test_attention_stdev = False
-            
+
+            if 'test_remove_attention_bias' not in vars(args).keys():
+                args.test_remove_attention_bias=False
+
+            if args.test_remove_attention_bias:
+                attention_bias=False
+                print("*** Removing bias from Attention layer in DeepMIL!")
+            else:
+                attention_bias=True
+
+
             if args.test_attention_stdev:
                 model = AttentionWithStd(hidden_dim=n_features, intermediate_hidden_dim=args.deepmil_intermediate_hidden, num_classes=n_classes)
             else:
-                model = Attention(hidden_dim=n_features, intermediate_hidden_dim=args.deepmil_intermediate_hidden, num_classes=n_classes)
+
+                model = Attention(hidden_dim=n_features, intermediate_hidden_dim=args.deepmil_intermediate_hidden, num_classes=n_classes, attention_bias=attention_bias)
         else:
             model = LogisticRegression(n_features, n_classes)
         if reload_model:
