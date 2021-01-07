@@ -178,7 +178,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
          # Evaluate on validation set
         if global_step % args.evaluate_every == 0:
             # evaluate
-            val_loss, val_accuracy, val_labels, val_preds, val_patients, _, _, _, _ = validate(args, val_loader, extractor, model, criterion, optimizer, final_test=False)
+            val_loss, val_accuracy, val_labels, val_preds, val_patients, _, _, _, _, _ = validate(args, val_loader, extractor, model, criterion, optimizer, final_test=False)
             val_losses.append(val_loss / len(val_loader))
 
             if args.classification_head not in ['linear', 'linear-deepmil']:
@@ -212,7 +212,7 @@ def train(args, train_loader, val_loader, extractor, model, criterion, optimizer
 
 def validate(args, loader, extractor, model, criterion, optimizer, final_test=False):
     loss_epoch, accuracy_epoch = 0, 0
-    labels, preds, patients, img_names, attentions, attention_gradients, subsample_indices = [], [], [], [], [], [], []
+    labels, preds, patients, img_names, attentions, attention_gradients, subsample_indices, predicted_probs = [], [], [], [], [], [], [], []
 
     model.eval()
 
@@ -259,9 +259,11 @@ def validate(args, loader, extractor, model, criterion, optimizer, final_test=Fa
                     loss = focal(loss)
 
                 predicted = output.argmax(1)
+                predicted_prob = torch.nn.functional.softmax(output, dim=1)
                 acc = (predicted == y).sum().item() / y.size(0)
                 loss_epoch += loss.item()
                 preds += predicted.cpu().tolist()
+                predicted_probs += predicted_prob.cpu().tolist()
 
         elif args.classification_head == 'linear':
             with torch.no_grad():
@@ -337,7 +339,7 @@ def validate(args, loader, extractor, model, criterion, optimizer, final_test=Fa
             # Happens when using dataset_Msi_features_with_patients, as we return the patient id as a string, which can't be tensorfied
             patients += list(patient)
 
-    return loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices
+    return loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices, predicted_probs
 
 
 def get_precomputed_dataloader(args, run_id):
@@ -460,6 +462,8 @@ def compute_roc_auc(args, patients, labels, preds, save_curve=False, epoch=0):
     dfgroup = data.groupby(['patient']).mean()
     labels = dfgroup['labels'].values
     preds = dfgroup['preds'].values
+    print(f"Y_true: {labels}")
+    print(f"Y_score: {preds}")
     rocauc = metrics.roc_auc_score(y_true=labels, y_score=preds)
 
     if save_curve:
@@ -498,14 +502,14 @@ def save_attention(args, img_names, attentions, attention_gradients, subsample_i
         if args.dataset == 'msi-tcga':
             patient_id = img_name.split('/')[5].split('case-')[1] # all img names are from the same patient ID
         elif args.dataset == 'basis':
-            patient_id = img_name.split('_')[1] # this is incorrect. img_name e.g. = /project/schirris/tiled_data_large/case-PD10010a/YID041/jpeg/tile396.jpg
+            patient_id = img_name.split('/')[4].split('case-')[1] # this is incorrect. img_name e.g. = /project/schirris/tiled_data_large/case-PD9578a/pid_YID161_tile_grid_extractor_585.pt
         tile_names = list(meta_img[0])
         coords = meta_img[1]
-        tile_names = [tile_names[int(i)] if not torch.isnan(i) else i for i in subsample_indices_per_patient]
+        tile_names = [tile_names[int(i)] if not torch.isnan(i) else np.nan for i in subsample_indices_per_patient]
         x_coords_unsampled = coords[:,0]
         y_coords_unsampled = coords[:,1]
-        x_coords = [x_coords_unsampled[int(i)] if not torch.isnan(i) else i  for i in subsample_indices_per_patient]
-        y_coords = [y_coords_unsampled[int(i)] if not torch.isnan(i) else i  for i in subsample_indices_per_patient]
+        x_coords = [x_coords_unsampled[int(i)] if not torch.isnan(i) else np.nan for i in subsample_indices_per_patient]
+        y_coords = [y_coords_unsampled[int(i)] if not torch.isnan(i) else np.nan for i in subsample_indices_per_patient]
 
 
         # We pad the left withe [None]s, because the subsample indices might be smaller than the actual array, and therefore smaller than the attention array
@@ -527,7 +531,13 @@ def save_attention(args, img_names, attentions, attention_gradients, subsample_i
 
     attention_df = pd.DataFrame({"tile_name": all_tile_names, "patient_id": all_patient_ids, "attention": np.array(attentions).flatten(), "attention_gradients": np.array(attention_gradients).flatten(), 'x': all_x_coords, 'y': all_y_coords})
 
-    attention_df.to_csv(f'{out_dir}/attention_output_epoch_{epoch+1}_{humane_readable_time}.csv')
+    attention_df.to_csv(f'{out_dir}/attention_output_epoch_{epoch}_{humane_readable_time}.csv')
+
+
+def save_probabilities(args, img_names, predicted_probs, labels, out_dir, humane_readable_time, epoch):
+    data = pd.DataFrame(data={'img': img_names, 'labels': labels, 'probs': predicted_probs})
+    data.to_csv(f'{out_dir}/probabilities_output_epoch_{epoch}_{humane_readable_time}.csv')
+
 
 @ex.automain
 def main(_run, _log):
@@ -845,7 +855,7 @@ def main(_run, _log):
         #     model_fp = os.path.join(args.model_path, "classifier_checkpoint_{}.tar".format(args.epoch_num))
         #     model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
             
-    loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices = validate(
+    loss_epoch, accuracy_epoch, labels, preds, patients, attentions, attention_gradients, img_names, subsample_indices, predicted_probs = validate(
         args, arr_test_loader, extractor, model, criterion, optimizer, final_test=True
     )
 
@@ -884,6 +894,8 @@ def main(_run, _log):
         # This means we'll have loaded a stacked grid, we'll have returned subsample indices, we'll have meaningful attentions.
         # Now save it for easy visualization..
         save_attention(args, img_names, attentions, attention_gradients, subsample_indices, args.out_dir, humane_readable_time, best_model_epoch)
+    elif args.classification_head == 'logistic':
+        save_probabilities(args, img_names, predicted_probs, labels, args.out_dir, humane_readable_time, best_model_epoch)
 
     
     
