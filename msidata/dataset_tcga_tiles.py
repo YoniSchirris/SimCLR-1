@@ -218,7 +218,7 @@ class TiledTCGADataset(Dataset):
                         if not tile.permute(1,0).shape[1] < SUBSAMPLE: # Only if there are more than to-be-subsampled tiles...
                             subsample_indices = torch.randperm(tile.shape[0])[:SUBSAMPLE].sort().values # Sort them for clarity
                             tile = tile[subsample_indices]
-                            subsample_indices = subsample_indices
+                            subsample_indices = subsample_indices.tolist()
                         else:
                             subsample_indices = [i for i in range(tile.shape[0])]
 
@@ -227,10 +227,14 @@ class TiledTCGADataset(Dataset):
 
                     tile = tile.permute(1,0)
                     stack_size = tile.shape[1]
+
+                    # WERE NOT PADDING THE SIDES NOW! CANT DO BATCH TRAINING
+                    # target_size = stack_size
+
                     if stack_size < target_size:
                         # always the case..
                         pad = target_size - stack_size
-                        tile = torch.nn.functional.pad(tile, (pad, 0), 'constant', 0) # the tensor is Cx(HxW), we want to pad so that # pixels is same for all, so that's the last channel in shape, so we give a tuple for that   
+                        tile = torch.nn.functional.pad(tile, (pad, 0), 'constant', 0.) # the tensor is Cx(HxW), we want to pad so that # pixels is same for all, so that's the last channel in shape, so we give a tuple for that   
 
                     subsample_indices = [np.nan] * (target_size - stack_size) + subsample_indices
                     
