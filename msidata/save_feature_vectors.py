@@ -44,7 +44,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
         extension = '.png'
     else:
         raise NotImplementedError
-    for step, (x, y, patient, img_names) in enumerate(loader):
+    for step, (x, y, patient, img_names, _) in enumerate(loader):
         print(f"[ Step {step} / {len(loader)} ]")
         x = x.to(device)
         # get encoding
@@ -53,7 +53,7 @@ def infer_and_save(loader, context_model, device, append_with='', model_type=Non
             with torch.no_grad():
                 h, z = context_model(x)
         else:
-            if model_type in ['imagenet-resnet18', 'imagenet-resnet50', 'imagenet-shufflenet-v1_x1_0', 'byol']:
+            if model_type in ['imagenet-resnet18', 'imagenet-resnet50', 'imagenet-shufflenetv2_x1_0', 'byol']:
                 context_model.fc = torch.nn.Identity()
                 with torch.no_grad():
                     h = context_model(x)
@@ -179,10 +179,10 @@ def aggregate_patient_vectors(args, root_dir, append_with='', grid=False, data=N
         print(f'[ {datetime.datetime.now()} ] \t [ {idx} / {len(data[identifier].unique())} ] \t Saving {filename}')
 
 
-def save_features(context_model, train_loader, test_loader, val_loader, device, append_with=''):
-    infer_and_save(train_loader, context_model, device, append_with)
-    infer_and_save(test_loader, context_model, device, append_with)
-    infer_and_save(val_loader, context_model, device, append_with)
+def save_features(args, context_model, train_loader, test_loader, val_loader, device, append_with=''):
+    infer_and_save(train_loader, context_model, device, append_with, model_type=args.logistic_extractor)
+    infer_and_save(test_loader, context_model, device, append_with, model_type=args.logistic_extractor)
+    infer_and_save(val_loader, context_model, device, append_with, model_type=args.logistic_extractor)
 
 
 @ex.automain
@@ -203,7 +203,11 @@ def main(_run, _log):
 
     if not args.use_precomputed_features:
         # model path is generally e.g. logs/pretrain/51
-        run_id = args.model_path.split('/')[-1]
+        if args.reload_model:
+            run_id = args.model_path.split('/')[-1] # We set it to the run id of the training of the extractor #TODO This doesn't allow for saving features for several model checkpoints of a single run. Fix this.
+        elif 'imagenet' in args.logistic_extractor:
+            run_id = args.out_dir.split('/')[-1] # When it's an imagenet model, we decided to set it to the run ID of this run. 
+
 
         # Load the dataset. sample_strategy is patient, meaning we get all tiles for a patient in a single _get
         if args.dataset == "msi-kather":
@@ -250,11 +254,11 @@ def main(_run, _log):
             num_workers=args.workers
         ) for data_set in [train_dataset, test_dataset, val_dataset]]
 
-        simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
+        simclr_model, _, _ = load_model(args, reload_model=True, model_type=args.logistic_extractor)
         simclr_model = simclr_model.to(args.device)
         simclr_model.eval()
 
-        save_features(simclr_model, train_loader, test_loader,
+        save_features(args, simclr_model, train_loader, test_loader,
                       val_loader, args.device, append_with=f'_{run_id}')
 
     if args.use_precomputed_features:
