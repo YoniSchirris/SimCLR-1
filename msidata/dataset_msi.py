@@ -82,7 +82,7 @@ class PreProcessedMSIDataset(Dataset):
         t3=time.time()
 
         img_name = os.path.join(self.root_dir, im_rel_path)
-        tile = io.imread(img_name) # ToPILImage takes either torch tensor or ndarray
+        tile = PIL.Image.open(img_name) # ToPILImage takes either torch tensor or ndarray
 
         t4=time.time()
         
@@ -108,7 +108,14 @@ class PreProcessedMSIDataset(Dataset):
         if print_time:
             print(f'Total: {total_time} \t tolist: {(t2-t1)/total_time} \t get_info: {(t3-t2)/total_time} \t load_im: {(t4-t2)/total_time} \t transform_im {(t5-t4)/total_time}')
 
-        return tile, label, hash(patient_id), img_name
+        return tile, label, hash(patient_id), img_name, []
+
+    def get_class_balance(self):
+    
+        label_mean = self.labels['label'].mean()
+        label_weights = [1, (1-label_mean)/label_mean]
+        print(f"==== Setting class balancing weights for {self.task}: {label_weights} =====")
+        return torch.tensor(label_weights)
 
     def setup(self):
         """
