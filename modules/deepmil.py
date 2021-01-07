@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class Attention(nn.Module):
-    def __init__(self, hidden_dim=2048, intermediate_hidden_dim=128, num_classes=2):
+    def __init__(self, hidden_dim=2048, intermediate_hidden_dim=128, num_classes=2, attention_bias=True):
         super(Attention, self).__init__()
         self.L = hidden_dim
         # self.D = int(hidden_dim / 2)
@@ -19,9 +19,9 @@ class Attention(nn.Module):
         # -- What exactly is this attention? Is this gated attention? Normal attention?
         # -- This is normal attention. Gated attention adds an element-wise multiplication with a linear layer and a sigmoid non-linearity
         self.attention = nn.Sequential( # in : batch_size * L
-            nn.Linear(self.L, self.D),  # per tile, gives 1*D
+            nn.Linear(self.L, self.D, bias=attention_bias),  # per tile, gives 1*D
             nn.Tanh(),
-            nn.Linear(self.D, self.K)   # per tile, gives 1*K
+            nn.Linear(self.D, self.K, bias=attention_bias)   # per tile, gives 1*K
         )
 
         self.classifier = nn.Sequential(
@@ -34,7 +34,10 @@ class Attention(nn.Module):
         Takes an bag of extracted feature vectors and classifies them accordingl
         
         """
+        # print(f"Shape of H being passed: {H.shape}")
+        #TODO CHANGE BACK, THIS WAS FOR THE KATHER DATA MSI TEST
         H = H.permute(0,2,1) # (batch x channels x instances) -> (batch x instances x channels)
+        # print(f"Shape of H being passed after permutation: {H.shape}")
 
         # We pass a (batch x channels) x instances tensor into attention network, which does a tile-wise attention computation. This is then reshaped back to represen the batches
         A = self.attention(H.reshape(-1, H.shape[-1])).reshape((H.shape[0], H.shape[1], 1))  # A = (batch x instances x K=1)
@@ -73,7 +76,7 @@ class Attention(nn.Module):
 
 
 class AttentionWithStd(nn.Module):
-    def __init__(self, hidden_dim=2048, intermediate_hidden_dim=128, num_classes=2):
+    def __init__(self, hidden_dim=2048, intermediate_hidden_dim=128, num_classes=2, attention_bias=True):
         super(AttentionWithStd, self).__init__()
         self.L = hidden_dim
         # self.D = int(hidden_dim / 2)
@@ -87,9 +90,9 @@ class AttentionWithStd(nn.Module):
         # -- What exactly is this attention? Is this gated attention? Normal attention?
         # -- This is normal attention. Gated attention adds an element-wise multiplication with a linear layer and a sigmoid non-linearity
         self.attention = nn.Sequential( # in : batch_size * L
-            nn.Linear(self.L, self.D),  # per tile, gives 1*D
+            nn.Linear(self.L, self.D, bias=attention_bias),  # per tile, gives 1*D
             nn.Tanh(),
-            nn.Linear(self.D, self.K)   # per tile, gives 1*K
+            nn.Linear(self.D, self.K, bias=attention_bias)   # per tile, gives 1*K
         )
 
         self.classifier = nn.Sequential(
