@@ -123,7 +123,14 @@ class PreProcessedMSIFeatureDataset(Dataset):
 
         # print(f"shape of tensor: {one_or_two_tiles.shape}, img name: {img_name}")
 
-        return one_or_two_tiles, label, patient_id, img_name
+        return one_or_two_tiles, label, patient_id, img_name, []
+
+    def get_class_balance(self):
+    
+        label_mean = self.labels['label'].mean()
+        label_weights = [1, (1-label_mean)/label_mean]
+        print(f"==== Setting class balancing weights for {self.task}: {label_weights} =====")
+        return torch.tensor(label_weights)
 
     def _get_labels(self, data_fraction):
 
@@ -234,6 +241,7 @@ class PreProcessedMSIFeatureDataset(Dataset):
         else:
             img_name = os.path.join(self.root_dir, row[1])
         vector = torch.load(img_name, map_location=self.device)
+        vector = vector.permute(1,0)
         label = row[2]
         patient_id = row[3]
         return vector, label, patient_id, img_name
