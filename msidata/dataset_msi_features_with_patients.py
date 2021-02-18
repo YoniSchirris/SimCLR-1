@@ -38,7 +38,7 @@ import time
 class PreProcessedMSIFeatureDataset(Dataset):
     """Preprocessed MSI dataset from https://zenodo.org/record/2532612 and https://zenodo.org/record/2530835"""
 
-    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with='', tensor_per_patient=False, seed=42):
+    def __init__(self, root_dir, transform=None, data_fraction=1, sampling_strategy='tile', device='cpu', balance_classes=False, append_img_path_with='', tensor_per_patient=False, seed=42, pad_tiles=True):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -51,10 +51,13 @@ class PreProcessedMSIFeatureDataset(Dataset):
                 primarily used for MIL training
         """
         self.seed = seed
+        self.pad_tiles = pad_tiles
         # self.labels = pd.read_csv(csv_file)
         self.balance_classes = balance_classes
         self.sampling_strategy = sampling_strategy
         self.tensor_per_patient = tensor_per_patient
+
+        self.target_size=5000 # max number of tiles in a WSI is ±4100 for this dataset.
 
         assert ((sampling_strategy=='tile') and not (tensor_per_patient)) or sampling_strategy=='patient', f"Ambiguous arguments. sampling_strategy={sampling_strategy}, tensor_per_patient={tensor_per_patient}"
 
@@ -100,30 +103,40 @@ class PreProcessedMSIFeatureDataset(Dataset):
         t1 = time.time()
 
         if self.sampling_strategy == 'tile':
-            one_or_two_tiles, label, patient_id, img_name = self._get_tile_item(
+            tile, label, patient_id, img_name = self._get_tile_item(
                 idx)
             
         elif self.sampling_strategy == 'patient' and not self.tensor_per_patient:
-            one_or_two_tiles, label, patient_id, img_name = self._get_patient_items(
+            tile, label, patient_id, img_name = self._get_patient_items(
                 idx)
         
         elif self.sampling_strategy == 'patient' and self.tensor_per_patient:
             # Actually same type of loading as a separate tile, just from a different file!
-            one_or_two_tiles, label, patient_id, img_name = self._get_tile_item(
+            tile, label, patient_id, img_name = self._get_tile_item(
                 idx)
 
-            # in this case, one_or_two_tiles is actually a high-dimensional tensor, of which the size depends on the patient.
+            # in this case, tile is actually a high-dimensional tensor, of which the size depends on the patient.
             # also, the img_name is the path to the tensor
-
-         
 
         else:
             raise NotImplementedError
         # print(f'Loading tile features took {time.time()-t1:.4f} seconds')
 
-        # print(f"shape of tensor: {one_or_two_tiles.shape}, img name: {img_name}")
+        # print(f"shape of tensor: {tile.shape}, img name: {img_name}")
 
-        return one_or_two_tiles, label, patient_id, img_name, []
+        if self.pad_tiles:
+            tile = self.pad_tensor(tile)
+
+        return tile, label, patient_id, img_name, []
+
+    def pad_tensor(self, tile):
+        stack_size = tile.shape[1]
+        if stack_size < self.target_size:
+            # always the case..
+            pad = self.target_size - stack_size
+            tile = torch.nn.functional.pad(tile, (pad, 0), 'constant',
+                                           0.)  # the tensor is Cx(HxW), we want to pad so that # pixels is same for all, so that's the last channel in shape, so we give a tuple for that
+        return tile
 
     def get_class_balance(self):
     

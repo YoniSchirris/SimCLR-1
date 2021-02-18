@@ -369,7 +369,8 @@ def get_precomputed_dataloader(args, run_id):
             sampling_strategy=sampling_strategy,
             append_img_path_with=f'_{run_id}',
             tensor_per_patient=args.load_patient_level_tensors,
-            seed=args.seed
+            seed=args.seed,
+            pad_tiles=args.logistic_batch_size > 1
             
         )
         test_dataset = PreProcessedMSIFeatureDataset(
@@ -379,7 +380,8 @@ def get_precomputed_dataloader(args, run_id):
             sampling_strategy=sampling_strategy,
             append_img_path_with=f'_{run_id}',
             tensor_per_patient=args.load_patient_level_tensors,
-            seed=args.seed
+            seed=args.seed,
+            pad_tiles=args.logistic_batch_size > 1
         )
 
     elif args.dataset in ['msi-tcga', 'basis']:
