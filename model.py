@@ -44,7 +44,7 @@ def load_model(args, reload_model=False, model_type='simclr', prepend='', n_feat
         else:
             raise NotImplementedError
 
-        if reload_model:
+        if reload_model and not args.use_precomputed_features:
             model_fp = os.path.join(
                 args.model_path, "checkpoint_{}.tar".format(epoch_num)
             )
@@ -72,7 +72,7 @@ def load_model(args, reload_model=False, model_type='simclr', prepend='', n_feat
         model = possible_non_simclr_models[model_type](pretrained=pretrained)
         model.fc = torch.nn.Identity()
 
-        if args.reload_model:
+        if args.reload_model and not args.use_precomputed_features:
             model_fp = os.path.join(
                 args.model_path, "checkpoint_{}.tar".format(epoch_num)
             )
@@ -99,7 +99,7 @@ def load_model(args, reload_model=False, model_type='simclr', prepend='', n_feat
         backbone = backbones[args.resnet]
         n_features = backbone.fc.in_features
 
-        if reload_model:
+        if reload_model and not args.use_precomputed_features:
             backbone.fc = torch.nn.Identity()
             model_fp = os.path.join(
                 args.model_path, "checkpoint_{}.tar".format(epoch_num)
