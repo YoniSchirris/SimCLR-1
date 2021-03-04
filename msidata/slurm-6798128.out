@@ -1,0 +1,11 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "1657"
+==== Starting to save features ===
+Successfully loaded labels from /project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv, it has 1018508 files.
+We use a train split of fold 1 of 431635 files.
+Successfully loaded labels from /project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv, it has 1018508 files.
+We use a test split of fold 1 of 156968 files.
+Successfully loaded labels from /project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv, it has 1018508 files.
+We use a val split of fold 1 of 106867 files.
+### Loading extractor from: ./logs/pretrain/1364/checkpoint_68000.tar ###
+slurmstepd: error: *** JOB 6798128 ON r30n7 CANCELLED AT 2020-10-27T17:51:43 ***

@@ -1,0 +1,18 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "1795"
+==== Starting to save features ===
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile.csv, it has 466009 files.
+We use a train split of fold 1 of 279421 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile.csv, it has 466009 files.
+We use a test split of fold 1 of 118590 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile.csv, it has 466009 files.
+We use a val split of fold 1 of 67998 files.
+ERROR - SimCLR - Failed after 0:00:11!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 255, in main
+    ) for data_set in [train_dataset, test_dataset, val_dataset]]
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 255, in <listcomp>
+    ) for data_set in [train_dataset, test_dataset, val_dataset]]
+AttributeError: 'Namespace' object has no attribute 'batch_size'
+
+srun: error: r30n2: task 0: Exited with exit code 1

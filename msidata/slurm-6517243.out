@@ -1,0 +1,12 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "649"
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a train split of fold 1 of 2200481 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a test split of fold 1 of 947582 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a val split of fold 1 of 490680 files.
+### Loading model from: ./logs/pretrain/585/checkpoint_68040.tar ###
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd: error: *** JOB 6517243 ON r30n7 CANCELLED AT 2020-08-20T14:54:15 DUE TO TIME LIMIT ***
+slurmstepd: error: *** STEP 6517243.0 ON r30n7 CANCELLED AT 2020-08-20T14:54:15 DUE TO TIME LIMIT ***

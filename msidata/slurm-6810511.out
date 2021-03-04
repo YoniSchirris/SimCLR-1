@@ -1,0 +1,11 @@
+WARNING - root - Changed type of config entry "use_precomputed_features" from bool to str
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "1794"
+==== Starting to save features ===
+ERROR - SimCLR - Failed after 0:00:00!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 265, in main
+    run_id = args.use_precomputed_features_id
+AttributeError: 'Namespace' object has no attribute 'use_precomputed_features_id'
+
+srun: error: r30n2: task 0: Exited with exit code 1

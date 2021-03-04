@@ -1,0 +1,2 @@
+/home/yonis/.conda/envs/thesisp375/bin/python3: Error while finding module specification for 'testing.logistic_regression' (ModuleNotFoundError: No module named 'testing')
+srun: error: r33n3: task 0: Exited with exit code 1

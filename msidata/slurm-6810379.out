@@ -1,0 +1,18 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "1767"
+==== Starting to save features ===
+Successfully loaded labels from /project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv, it has 1018508 files.
+We use a train split of fold 1 of 431635 files.
+Successfully loaded labels from /project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv, it has 1018508 files.
+We use a test split of fold 1 of 156968 files.
+Successfully loaded labels from /project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv, it has 1018508 files.
+We use a val split of fold 1 of 106867 files.
+## Using an imagenet pretrained network!
+ERROR - SimCLR - Failed after 0:00:11!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 262, in main
+    val_loader, args.device, append_with=f'_{run_id}')
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 183, in save_features
+    infer_and_save(train_loader, context_model, device, append_with, model_type=args.logistic_extractor)
+NameError: name 'args' is not defined
+

@@ -1,0 +1,42 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "647"
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a train split of fold 1 of 2200481 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a test split of fold 1 of 947582 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a val split of fold 1 of 490680 files.
+### Loading model from: ./logs/pretrain/585/checkpoint_68040.tar ###
+ERROR - SimCLR - Failed after 0:01:33!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 281, in main
+    val_loader, args.device, append_with=f'_{run_id}')
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 178, in save_features
+    infer_and_save(train_loader, context_model, device, append_with)
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 53, in infer_and_save
+    h, z = context_model(x)
+  File "/home/yonis/.conda/envs/thesisp375_apex/lib/python3.7/site-packages/torch/nn/modules/module.py", line 722, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/yonis/SimCLR-1/modules/simclr.py", line 61, in forward
+    if self.args.normalize:
+AttributeError: 'Namespace' object has no attribute 'normalize'
+
+srun: error: r31n1: task 0: Exited with exit code 1
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "648"
+## Aggregating vectors per patient in /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dx_with_ddr_labels_and_splits_with_kather_hrd_subsample_500.csv
+ERROR - SimCLR - Failed after 0:00:36!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 287, in main
+    append_with=f'_{run_id}', grid=args.create_feature_grid)
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 108, in aggregate_patient_vectors
+    relative_tensor_paths[0], map_location='cpu').shape[0]
+  File "/home/yonis/.conda/envs/thesisp375_apex/lib/python3.7/site-packages/torch/serialization.py", line 571, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/home/yonis/.conda/envs/thesisp375_apex/lib/python3.7/site-packages/torch/serialization.py", line 229, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/home/yonis/.conda/envs/thesisp375_apex/lib/python3.7/site-packages/torch/serialization.py", line 210, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: '/project/yonis/tcga_brca_dx/tiled_data_large/case-001cef41-ff86-4d3f-a140-a647ac4b10a1/E2F24814-24BA-4158-8841-F27A8E100589/jpeg/tile1639_585.pt'
+
+srun: error: r31n1: task 0: Exited with exit code 1

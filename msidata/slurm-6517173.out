@@ -1,0 +1,107 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "643"
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a train split of fold 1 of 2200481 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a test split of fold 1 of 947582 files.
+Successfully loaded labels from /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits.csv, it has 4026308 files.
+We use a val split of fold 1 of 490680 files.
+### Loading model from: ./logs/pretrain/585/checkpoint_68040.tar ###
+ERROR - SimCLR - Failed after 0:01:21!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 276, in main
+    simclr_model, _, _ = load_model(args, train_loader, reload_model=True)
+  File "/home/yonis/SimCLR-1/model.py", line 28, in load_model
+    model.load_state_dict(torch.load(model_fp, map_location=args.device.type))
+  File "/home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/serialization.py", line 527, in load
+    with _open_zipfile_reader(f) as opened_zipfile:
+  File "/home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/serialization.py", line 224, in __init__
+    super(_open_zipfile_reader, self).__init__(torch._C.PyTorchFileReader(name_or_buffer))
+RuntimeError: version_ <= kMaxSupportedFileFormatVersion INTERNAL ASSERT FAILED at /pytorch/caffe2/serialize/inline_container.cc:132, please report a bug to PyTorch. Attempted to read a PyTorch file with version 3, but the maximum supported version for reading is 2. Your PyTorch installation may be too old. (init at /pytorch/caffe2/serialize/inline_container.cc:132)
+frame #0: c10::Error::Error(c10::SourceLocation, std::string const&) + 0x33 (0x1514a4bcb193 in /home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/lib/libc10.so)
+frame #1: caffe2::serialize::PyTorchStreamReader::init() + 0x1f5b (0x1514a7d539eb in /home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/lib/libtorch.so)
+frame #2: caffe2::serialize::PyTorchStreamReader::PyTorchStreamReader(std::string const&) + 0x64 (0x1514a7d54c04 in /home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/lib/libtorch.so)
+frame #3: <unknown function> + 0x6c6536 (0x1514efe4d536 in /home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #4: <unknown function> + 0x295a74 (0x1514efa1ca74 in /home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #5: _PyMethodDef_RawFastCallDict + 0x24d (0x5640304f0f1d in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #6: _PyCFunction_FastCallDict + 0x21 (0x5640304f10a1 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #7: _PyObject_Call_Prepend + 0x63 (0x5640304eee33 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #8: PyObject_Call + 0x6e (0x5640304e1a3e in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #9: <unknown function> + 0x9d41b (0x56403045941b in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #10: _PyObject_FastCallKeywords + 0x128 (0x564030526e28 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #11: _PyEval_EvalFrameDefault + 0x52e6 (0x56403058c4d6 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #12: _PyEval_EvalCodeWithName + 0x5da (0x5640304cf49a in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #13: _PyFunction_FastCallDict + 0x1d5 (0x5640304d02a5 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #14: _PyObject_Call_Prepend + 0x63 (0x5640304eee33 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #15: <unknown function> + 0x16a21a (0x56403052621a in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #16: _PyObject_FastCallKeywords + 0x128 (0x564030526e28 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #17: _PyEval_EvalFrameDefault + 0x4a86 (0x56403058bc76 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #18: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #19: _PyFunction_FastCallKeywords + 0x387 (0x56403051f437 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #20: _PyEval_EvalFrameDefault + 0x14eb (0x5640305886db in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #21: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #22: _PyFunction_FastCallKeywords + 0x387 (0x56403051f437 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #23: _PyEval_EvalFrameDefault + 0x14eb (0x5640305886db in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #24: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #25: _PyFunction_FastCallDict + 0x3ff (0x5640304d04cf in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #26: _PyEval_EvalFrameDefault + 0x1f3a (0x56403058912a in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #27: _PyFunction_FastCallDict + 0x10b (0x5640304d01db in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #28: <unknown function> + 0x13312e (0x5640304ef12e in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #29: PyObject_CallFunctionObjArgs + 0x99 (0x5640304ef279 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #30: <unknown function> + 0x50f4 (0x1514a1f940f4 in /home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/wrapt/_wrappers.cpython-37m-x86_64-linux-gnu.so)
+frame #31: PyObject_Call + 0x6e (0x5640304e1a3e in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #32: _PyEval_EvalFrameDefault + 0x1f3a (0x56403058912a in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #33: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #34: _PyFunction_FastCallDict + 0x1d5 (0x5640304d02a5 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #35: _PyObject_Call_Prepend + 0x63 (0x5640304eee33 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #36: <unknown function> + 0x16a2da (0x5640305262da in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #37: _PyObject_FastCallKeywords + 0x49b (0x56403052719b in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #38: _PyEval_EvalFrameDefault + 0x4a86 (0x56403058bc76 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #39: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #40: _PyFunction_FastCallKeywords + 0x387 (0x56403051f437 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #41: _PyEval_EvalFrameDefault + 0x14eb (0x5640305886db in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #42: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #43: _PyFunction_FastCallKeywords + 0x325 (0x56403051f3d5 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #44: _PyEval_EvalFrameDefault + 0x6a3 (0x564030587893 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #45: _PyFunction_FastCallKeywords + 0xfb (0x56403051f1ab in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #46: _PyEval_EvalFrameDefault + 0x416 (0x564030587606 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #47: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #48: PyEval_EvalCodeEx + 0x44 (0x5640304d0094 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #49: PyEval_EvalCode + 0x1c (0x5640304d00bc in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #50: <unknown function> + 0x1daeb0 (0x564030596eb0 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #51: _PyMethodDef_RawFastCallKeywords + 0xe9 (0x56403051fab9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #52: _PyCFunction_FastCallKeywords + 0x21 (0x56403051fd51 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #53: _PyEval_EvalFrameDefault + 0x4784 (0x56403058b974 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #54: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #55: _PyFunction_FastCallKeywords + 0x325 (0x56403051f3d5 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #56: _PyEval_EvalFrameDefault + 0x416 (0x564030587606 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #57: _PyEval_EvalCodeWithName + 0x2f9 (0x5640304cf1b9 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #58: _PyFunction_FastCallDict + 0x1d5 (0x5640304d02a5 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #59: <unknown function> + 0x2233c7 (0x5640305df3c7 in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #60: <unknown function> + 0x2360fb (0x5640305f20fb in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #61: _Py_UnixMain + 0x3c (0x5640305f21ec in /home/yonis/.conda/envs/thesisp375/bin/python)
+frame #62: __libc_start_main + 0xeb (0x1514fd18209b in /lib/x86_64-linux-gnu/libc.so.6)
+frame #63: <unknown function> + 0x1daf7d (0x564030596f7d in /home/yonis/.conda/envs/thesisp375/bin/python)
+
+
+srun: error: r30n7: task 0: Exited with exit code 1
+srun: Job 6517173 step creation temporarily disabled, retrying
+srun: Step created for job 6517173
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "644"
+## Aggregating vectors per patient in /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dx_with_ddr_labels_and_splits_with_kather_hrd_subsample_500.csv
+ERROR - SimCLR - Failed after 0:00:35!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 287, in main
+    append_with=f'_{run_id}', grid=args.create_feature_grid)
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 108, in aggregate_patient_vectors
+    relative_tensor_paths[0], map_location='cpu').shape[0]
+  File "/home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/serialization.py", line 525, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/serialization.py", line 212, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/home/yonis/.conda/envs/thesisp375/lib/python3.7/site-packages/torch/serialization.py", line 193, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: '/project/yonis/tcga_brca_dx/tiled_data_large/case-001cef41-ff86-4d3f-a140-a647ac4b10a1/E2F24814-24BA-4158-8841-F27A8E100589/jpeg/tile1639_585.pt'
+
+srun: error: r30n7: task 0: Exited with exit code 1

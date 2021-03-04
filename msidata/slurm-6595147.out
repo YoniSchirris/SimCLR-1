@@ -1,0 +1,18 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "958"
+## Aggregating vectors per patient in /home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile.csv
+ERROR - SimCLR - Failed after 0:00:11!
+Traceback (most recent calls WITHOUT Sacred internals):
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 292, in main
+    append_with=f'_{run_id}', grid=args.create_feature_grid)
+  File "/home/yonis/SimCLR-1/msidata/save_feature_vectors.py", line 111, in aggregate_patient_vectors
+    relative_tensor_paths[0], map_location='cpu').shape[0]
+  File "/home/yonis/.conda/envs/thesisp375_clone/lib/python3.7/site-packages/torch/serialization.py", line 571, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/home/yonis/.conda/envs/thesisp375_clone/lib/python3.7/site-packages/torch/serialization.py", line 229, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/home/yonis/.conda/envs/thesisp375_clone/lib/python3.7/site-packages/torch/serialization.py", line 210, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: '/project/yonis/tcga_brca_dx/tiled_data_large/case-001cef41-ff86-4d3f-a140-a647ac4b10a1/E2F24814-24BA-4158-8841-F27A8E100589/jpeg/tile2095_905.pt'
+
+srun: error: r13n14: task 0: Exited with exit code 1

@@ -1,0 +1,5 @@
+INFO - SimCLR - Running command 'main'
+INFO - SimCLR - Started run with ID "650"
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd: error: *** STEP 6517433.0 ON r31n1 CANCELLED AT 2020-08-20T14:55:15 ***
+slurmstepd: error: *** JOB 6517433 ON r31n1 CANCELLED AT 2020-08-20T14:55:15 ***
