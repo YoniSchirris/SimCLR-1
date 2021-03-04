@@ -1,7 +1,4 @@
 __pycache__
-logs/
-datasets/
 *dropbox-version
 .vscode
-*.out
 *.idea
