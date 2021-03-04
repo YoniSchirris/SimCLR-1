@@ -17,7 +17,7 @@ ex = Experiment("SimCLR")
 
 
 #### file output directory
-ex.observers.append(FileStorageObserver("./logs"))
+ex.observers.append(FileStorageObserver("../simclr-logs"))
 
 #### database output
 # ex.observers.append(
@@ -43,7 +43,7 @@ def my_config():
         if cfg["test"]:
             directory = "test"
         
-    ex.observers.append(FileStorageObserver(Path("./logs", directory)))
+    ex.observers.append(FileStorageObserver(Path("../simclr-logs", directory)))
 
     del cfg
 
