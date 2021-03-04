@@ -2,10 +2,11 @@
 
 #SBATCH --job-name=create_grid
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=1
-#SBATCH --partition=normal
+#SBATCH --cpus-per-task=4
+#SBATCH --partition=gpu_shared
+#SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
-#SBATCH --time=2:0:0
+#SBATCH --time=10:0:0
 
 module purge
 module load 2019
@@ -22,5 +23,8 @@ conda activate thesisp375_clone # has pytorch 1.6 instead of 1.4
 cd ..
 #srun python -m msidata.save_feature_vectors with config_file=./config/config-create-features-and-grid-brca-dx.yaml batch_size=1024 workers=0 path_to_msi_data=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna.csv use_precomputed_features=True use_precomputed_features_id=585  # compute and save all feature vectors. aggregate all into large feature grids
 
-srun python -m msidata.save_feature_vectors with config_file=./config/config-create-features-and-grid-brca-dx.yaml use_precomputed_features=True workers=0 use_precomputed_features_id=951 path_to_msi_data=/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile.csv
+label_file=/project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv
 
+#python -m msidata.save_feature_vectors with config_file=./config/config-create-features-and-grid-basis.yaml workers=0 use_precomputed_features=True use_precomputed_features_id=585
+
+python -m msidata.save_feature_vectors with config_file=./config/config-create-features-and-grid-basis.yaml workers=6 model_path=./logs/pretrain/1362 epoch_num=68000 reload_classifier=False
