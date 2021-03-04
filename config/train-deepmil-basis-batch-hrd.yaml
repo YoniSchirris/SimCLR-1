@@ -7,13 +7,13 @@ epochs: 100
 kfold: 1
 
 #Data options
-dataset: "msi-tcga" # STL10 / CIFAR10 / 'msi-kather' / 'mci-tga'
+dataset: "basis" # STL10 / CIFAR10 / 'msi-kather' / 'mci-tga'
 # if msi-kather, path_to_msi_data should be to the directory ..../msidata/crc_dx/train
 # if msi-tcga, path_to_Msi_data should be to the csv file .../tcga/crc_dx/labels_for_.....csv
 #path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 #path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
-root_dir_for_tcga_tiles: "/project/yonis/tcga_brca_dx/tiled_data_large/"
-path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile_with_kather_genetics.csv"
+root_dir_for_tcga_tiles: "/project/schirris/tiled_data_large/"
+path_to_msi_data: "/project/schirris/basisscripts/step_3/data_basis_brca_with_labels_and_splits.csv"
 path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
 
 pretrain: False 
@@ -74,7 +74,7 @@ use_precomputed_features_id: '585'
 freeze_encoder: False
 validation_split: 0.2
 evaluate_every: 100 
-ddr_label: "TP53_anymut" # or any of the ones defined in the ddr sheet
+ddr_label: 'tertile_HRD' # or any of the ones defined in the ddr sheet
 
 
 use_focal_loss: False

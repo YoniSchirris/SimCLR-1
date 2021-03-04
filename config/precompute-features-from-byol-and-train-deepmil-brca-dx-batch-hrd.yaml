@@ -13,10 +13,10 @@ dataset: "msi-tcga" # STL10 / CIFAR10 / 'msi-kather' / 'mci-tga'
 #path_to_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/train/"
 #path_to_test_msi_data: "/Users/yoni/dropbox/UvA/AI/nki/histogenomics-msc-2019/yoni-code/MsiPrediction/data/msidata/crc_dx/test/"
 root_dir_for_tcga_tiles: "/project/yonis/tcga_brca_dx/tiled_data_large/"
-path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500_with_hrd_tertile_with_kather_genetics.csv"
+path_to_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/brca_dx/data_tcga_brca_dxwith_ddr_labels_and_splits_dropna_subsample_500.csv"
 path_to_test_msi_data: "/home/yonis/histogenomics-msc-2019/yoni-code/MsiPrediction/metadata/tcga/crc_dx/labels_for_kather_tcga_crc_dx_train.csv"
 
-pretrain: False 
+pretrain: True 
 load_patient_level_tensors: False
 load_wsi_level_tensors: True
 load_tensor_grid: True
@@ -36,7 +36,7 @@ projection_dim: 128 # "[...] to project the representation to a 128-dimensional 
 
 # supervised or unsupservised learning?
 feature_learning: "unsupervised"
-unsupervised_method: "" # "simclr" or "byol"
+unsupervised_method: "byol" # "simclr" or "byol"
 save_each_epochs: 1
 projection_hidden: 128      # only used for supervised feature learning
 
@@ -52,29 +52,29 @@ temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch 
 
 # reload options
 reload_model: False
-model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
-epoch_num: 90 # set to checkpoint number
+model_path: "logs/pretrain/901" # set to the directory containing `checkpoint_##.tar` 
+epoch_num: 406362 # set to checkpoint number
  
 # mixed-precision training
 fp16: False 
 fp16_opt_level: "O2"
 
 # testing options
-logistic_extractor: 'simclr' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
+logistic_extractor: 'byol' # extractor to be used during testing. either 'simclr' or 'imagenet-resnet18', 'imagenet-resnet50', or 'imagenet-shufflenetv2_x1_0'
 classification_head: 'deepmil' # or 'logistic' or 'deepmil'
 logistic_batch_size: 16
-logistic_epochs: 6
+logistic_epochs: 4
 logistic_lr: 5.0e-5
 deepmil_lr: 0.0005
 deepmil_reg: 10.0e-5
-precompute_features: False
+precompute_features: True
 precompute_features_in_memory: False
-use_precomputed_features: True
-use_precomputed_features_id: '585'
+use_precomputed_features: False
+use_precomputed_features_id: ''
 freeze_encoder: False
 validation_split: 0.2
 evaluate_every: 100 
-ddr_label: "TP53_anymut" # or any of the ones defined in the ddr sheet
+ddr_label: 'median_HRD_Score' # or any of the ones defined in the ddr sheet
 
 
 use_focal_loss: False

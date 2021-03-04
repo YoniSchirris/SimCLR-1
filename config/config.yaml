@@ -63,6 +63,11 @@ temperature: 0.5 # see appendix B.7.: Optimal temperature under different batch 
 reload_model: False
 model_path: "logs/pretrain/2" # set to the directory containing `checkpoint_##.tar` 
 epoch_num: 90 # set to checkpoint number
+
+# reload classifier options
+reload_classifier: False
+classifier_path: "logs/eval/2"
+classifier_epoch: 111111
  
 # mixed-precision training
 fp16: False 
